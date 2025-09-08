@@ -44,13 +44,29 @@ app.use(cors({
     const allowedOrigins = [
       process.env.FRONTEND_URL || 'http://localhost:3000',
       'http://localhost:3000',
-      'http://localhost:3001'
+      'http://localhost:3001',
+      'https://splitset.in',
+      'https://www.splitset.in',
+      // Allow any Netlify deployment
+      /^https:\/\/.*\.netlify\.app$/,
+      // Allow any Vercel deployment
+      /^https:\/\/.*\.vercel\.app$/
     ];
     
     // Allow requests with no origin (mobile apps, etc.)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.includes(origin)) {
+    // Check if origin matches any allowed origin (string or regex)
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (typeof allowedOrigin === 'string') {
+        return allowedOrigin === origin;
+      } else if (allowedOrigin instanceof RegExp) {
+        return allowedOrigin.test(origin);
+      }
+      return false;
+    });
+
+    if (isAllowed) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
