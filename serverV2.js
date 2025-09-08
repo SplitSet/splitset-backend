@@ -191,10 +191,17 @@ const startServer = async () => {
     await db.migrate.latest();
     logger.info('Database migrations completed');
     
-    // Initialize queue service
+    // Initialize queue service (optional - Redis required)
     logger.info('Initializing queue service...');
-    await QueueService.initialize();
-    logger.info('Queue service initialized');
+    try {
+      await QueueService.initialize();
+      logger.info('Queue service initialized');
+    } catch (error) {
+      logger.warn('Queue service initialization failed - continuing without Redis', { 
+        error: error.message 
+      });
+      logger.info('App will work without background jobs - Redis can be added later');
+    }
     
     // Start HTTP server
     const server = app.listen(PORT, () => {
