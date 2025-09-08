@@ -1,0 +1,375 @@
+{% comment %}
+  Bundle Cart Synchronization - Global Script
+  Monitors cart changes and automatically removes corresponding bundle items
+  Works for all products created via the bundle app
+{% endcomment %}
+
+<script>
+(function() {
+  'use strict';
+  
+  console.log('Bundle Cart Sync: Initializing global bundle synchronization');
+  
+  // Configuration
+  const BUNDLE_SYNC_CONFIG = {
+    enabled: true,
+    debug: true,
+    checkInterval: 1000, // Check every 1 second
+    bundleProperty: '_bundle_id',
+    componentProperty: '_bundle_component',
+    sizeProperty: '_bundle_size'
+  };
+  
+  // Store previous cart state for comparison
+  let previousCartState = null;
+  let syncInProgress = false;
+  
+  // Initialize bundle sync system
+  function initBundleSync() {
+    if (!BUNDLE_SYNC_CONFIG.enabled) return;
+    
+    console.log('Bundle Cart Sync: Starting cart monitoring');
+    
+    // Start monitoring cart changes
+    startCartMonitoring();
+    
+    // Listen for cart update events
+    setupCartEventListeners();
+    
+    // Initial cart state capture
+    captureInitialCartState();
+  }
+  
+  function captureInitialCartState() {
+    fetch('/cart.js')
+      .then(response => response.json())
+      .then(cart => {
+        previousCartState = processCartForBundles(cart);
+        if (BUNDLE_SYNC_CONFIG.debug) {
+          console.log('Bundle Cart Sync: Initial cart state captured', previousCartState);
+        }
+      })
+      .catch(error => {
+        console.log('Bundle Cart Sync: Could not capture initial cart state', error);
+      });
+  }
+  
+  function startCartMonitoring() {
+    setInterval(function() {
+      if (syncInProgress) return;
+      
+      fetch('/cart.js')
+        .then(response => response.json())
+        .then(cart => {
+          checkForBundleChanges(cart);
+        })
+        .catch(error => {
+          if (BUNDLE_SYNC_CONFIG.debug) {
+            console.log('Bundle Cart Sync: Cart fetch error', error);
+          }
+        });
+    }, BUNDLE_SYNC_CONFIG.checkInterval);
+  }
+  
+  function setupCartEventListeners() {
+    // Listen for various cart events
+    const cartEvents = [
+      'cart:updated',
+      'cart:change', 
+      'cart:remove',
+      'cartUpdated',
+      'cart.requestComplete'
+    ];
+    
+    cartEvents.forEach(function(eventName) {
+      document.addEventListener(eventName, function() {
+        setTimeout(function() {
+          fetch('/cart.js')
+            .then(response => response.json())
+            .then(cart => checkForBundleChanges(cart))
+            .catch(error => console.log('Bundle Cart Sync: Event handler error', error));
+        }, 500);
+      });
+    });
+    
+    // jQuery events if available
+    if (typeof jQuery !== 'undefined') {
+      jQuery(document).on('cart.requestComplete cartUpdated', function() {
+        setTimeout(function() {
+          fetch('/cart.js')
+            .then(response => response.json())
+            .then(cart => checkForBundleChanges(cart))
+            .catch(error => console.log('Bundle Cart Sync: jQuery event error', error));
+        }, 500);
+      });
+    }
+  }
+  
+  function processCartForBundles(cart) {
+    const bundleGroups = {};
+    
+    cart.items.forEach(function(item, index) {
+      const bundleId = getBundleProperty(item, BUNDLE_SYNC_CONFIG.bundleProperty);
+      const componentType = getBundleProperty(item, BUNDLE_SYNC_CONFIG.componentProperty);
+      const bundleSize = getBundleProperty(item, BUNDLE_SYNC_CONFIG.sizeProperty);
+      
+      if (bundleId && componentType) {
+        const bundleKey = bundleId + '_' + (bundleSize || 'default');
+        
+        if (!bundleGroups[bundleKey]) {
+          bundleGroups[bundleKey] = {
+            bundleId: bundleId,
+            size: bundleSize,
+            components: {},
+            items: []
+          };
+        }
+        
+        bundleGroups[bundleKey].components[componentType] = {
+          key: item.key,
+          variant_id: item.variant_id,
+          quantity: item.quantity,
+          index: index
+        };
+        
+        bundleGroups[bundleKey].items.push(item.key);
+      }
+    });
+    
+    return bundleGroups;
+  }
+  
+  function getBundleProperty(item, propertyName) {
+    // Check in properties object
+    if (item.properties && item.properties[propertyName]) {
+      return item.properties[propertyName];
+    }
+    
+    // Check in line_level_discount_allocations or other nested objects
+    if (item.line_level_discount_allocations) {
+      for (let allocation of item.line_level_discount_allocations) {
+        if (allocation.properties && allocation.properties[propertyName]) {
+          return allocation.properties[propertyName];
+        }
+      }
+    }
+    
+    return null;
+  }
+  
+  function checkForBundleChanges(currentCart) {
+    if (!previousCartState) {
+      previousCartState = processCartForBundles(currentCart);
+      return;
+    }
+    
+    const currentBundleState = processCartForBundles(currentCart);
+    
+    // Check for removed bundle components
+    const removedComponents = findRemovedComponents(previousCartState, currentBundleState);
+    
+    if (removedComponents.length > 0) {
+      if (BUNDLE_SYNC_CONFIG.debug) {
+        console.log('Bundle Cart Sync: Detected removed components', removedComponents);
+      }
+      
+      handleRemovedComponents(removedComponents, currentBundleState);
+    }
+    
+    // Update previous state
+    previousCartState = currentBundleState;
+  }
+  
+  function findRemovedComponents(previousState, currentState) {
+    const removedComponents = [];
+    
+    // Check each previous bundle
+    Object.keys(previousState).forEach(function(bundleKey) {
+      const previousBundle = previousState[bundleKey];
+      const currentBundle = currentState[bundleKey];
+      
+      if (!currentBundle) {
+        // Entire bundle was removed - no action needed
+        return;
+      }
+      
+      // Check each component in the previous bundle
+      Object.keys(previousBundle.components).forEach(function(componentType) {
+        const previousComponent = previousBundle.components[componentType];
+        const currentComponent = currentBundle.components[componentType];
+        
+        if (!currentComponent) {
+          // This component was removed
+          removedComponents.push({
+            bundleKey: bundleKey,
+            bundleId: previousBundle.bundleId,
+            size: previousBundle.size,
+            removedComponent: componentType,
+            remainingComponents: Object.keys(currentBundle.components)
+          });
+        }
+      });
+    });
+    
+    return removedComponents;
+  }
+  
+  function handleRemovedComponents(removedComponents, currentBundleState) {
+    if (syncInProgress) return;
+    
+    syncInProgress = true;
+    
+    const removalPromises = removedComponents.map(function(removal) {
+      return removeRemainingBundleComponents(removal, currentBundleState);
+    });
+    
+    Promise.all(removalPromises)
+      .then(function(results) {
+        if (BUNDLE_SYNC_CONFIG.debug) {
+          console.log('Bundle Cart Sync: Completed bundle synchronization', results);
+        }
+        
+        // Trigger cart update events
+        triggerCartUpdateEvents();
+      })
+      .catch(function(error) {
+        console.error('Bundle Cart Sync: Error during synchronization', error);
+      })
+      .finally(function() {
+        syncInProgress = false;
+      });
+  }
+  
+  function removeRemainingBundleComponents(removal, currentBundleState) {
+    return new Promise(function(resolve, reject) {
+      const currentBundle = currentBundleState[removal.bundleKey];
+      
+      if (!currentBundle || Object.keys(currentBundle.components).length === 0) {
+        resolve({ action: 'no_remaining_components', bundleId: removal.bundleId });
+        return;
+      }
+      
+      if (BUNDLE_SYNC_CONFIG.debug) {
+        console.log('Bundle Cart Sync: Removing remaining components for bundle', removal.bundleId, 'after', removal.removedComponent, 'was removed');
+      }
+      
+      // Collect all remaining component keys to remove
+      const keysToRemove = Object.values(currentBundle.components).map(function(comp) {
+        return comp.key;
+      });
+      
+      if (keysToRemove.length === 0) {
+        resolve({ action: 'no_keys_to_remove', bundleId: removal.bundleId });
+        return;
+      }
+      
+      // Remove all remaining components
+      const updates = {};
+      keysToRemove.forEach(function(key) {
+        updates[key] = 0; // Set quantity to 0 to remove
+      });
+      
+      fetch('/cart/update.js', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ updates: updates })
+      })
+      .then(function(response) {
+        if (!response.ok) {
+          throw new Error('Failed to update cart: ' + response.status);
+        }
+        return response.json();
+      })
+      .then(function(cart) {
+        if (BUNDLE_SYNC_CONFIG.debug) {
+          console.log('Bundle Cart Sync: Successfully removed remaining components for bundle', removal.bundleId);
+        }
+        resolve({ 
+          action: 'removed_components', 
+          bundleId: removal.bundleId, 
+          removedKeys: keysToRemove,
+          newCartItemCount: cart.item_count
+        });
+      })
+      .catch(function(error) {
+        console.error('Bundle Cart Sync: Failed to remove components for bundle', removal.bundleId, error);
+        reject(error);
+      });
+    });
+  }
+  
+  function triggerCartUpdateEvents() {
+    // Trigger cart update events for theme and apps
+    document.dispatchEvent(new CustomEvent('cart:updated'));
+    document.dispatchEvent(new CustomEvent('cornerCart:update'));
+    document.dispatchEvent(new CustomEvent('cart:change'));
+    document.dispatchEvent(new CustomEvent('cart:build'));
+    window.dispatchEvent(new Event('cartChanged'));
+    
+    // jQuery events
+    if (typeof jQuery !== 'undefined') {
+      jQuery(document).trigger('cart.requestComplete');
+      jQuery(document).trigger('cartUpdated');
+    }
+    
+    // Update cart count displays
+    updateCartCountDisplays();
+    
+    if (BUNDLE_SYNC_CONFIG.debug) {
+      console.log('Bundle Cart Sync: Triggered cart update events');
+    }
+  }
+  
+  function updateCartCountDisplays() {
+    fetch('/cart.js')
+      .then(response => response.json())
+      .then(cart => {
+        const cartCountElements = document.querySelectorAll('[data-cart-count], .cart-count, .cart-item-count');
+        cartCountElements.forEach(element => {
+          element.textContent = cart.item_count;
+        });
+        
+        // Update cart drawer if it exists
+        const cartDrawer = document.querySelector('[data-cart-drawer], .cart-drawer, #cart-drawer');
+        if (cartDrawer) {
+          cartDrawer.dispatchEvent(new CustomEvent('refresh'));
+        }
+      })
+      .catch(error => {
+        if (BUNDLE_SYNC_CONFIG.debug) {
+          console.log('Bundle Cart Sync: Could not update cart displays', error);
+        }
+      });
+  }
+  
+  // Initialize when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initBundleSync);
+  } else {
+    initBundleSync();
+  }
+  
+  // Also initialize after a short delay to ensure all other scripts are loaded
+  setTimeout(initBundleSync, 2000);
+  
+  // Expose configuration for debugging
+  window.bundleSyncConfig = BUNDLE_SYNC_CONFIG;
+  
+  console.log('Bundle Cart Sync: Global synchronization script loaded');
+})();
+</script>
+
+{% schema %}
+{
+  "name": "Bundle Cart Sync",
+  "settings": [],
+  "presets": [
+    {
+      "name": "Bundle Cart Sync"
+    }
+  ]
+}
+{% endschema %}

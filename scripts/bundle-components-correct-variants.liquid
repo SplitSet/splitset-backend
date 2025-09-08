@@ -1,0 +1,532 @@
+{% comment %}
+  Bundle Components Display Section - Correct Variant IDs
+  Uses actual component product variant IDs with instant synchronization
+{% endcomment %}
+
+{% if product.metafields.bundle_app.is_bundle %}
+  <style>
+    /* Bundle components styling - simplified */
+    .bundle-components-wrapper {
+      margin: 20px 0;
+      position: relative;
+      z-index: 10;
+    }
+    
+    .bundle-product-container {
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+      margin-bottom: 15px;
+      padding: 15px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      background: #fafafa;
+    }
+    
+    .bundle-product-image {
+      width: 80px;
+      height: 80px;
+      border-radius: 8px;
+      overflow: hidden;
+      flex-shrink: 0;
+      border: 1px solid #ddd;
+    }
+    
+    .bundle-product-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .bundle-product-info {
+      flex-grow: 1;
+    }
+    
+    .bundle-product-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+    
+    .bundle-product-price {
+      font-size: 14px;
+      color: #666;
+      font-weight: 500;
+    }
+    
+    /* Hide original variant selector when bundle is active */
+    .bundle-active .product-form__input {
+      display: none !important;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .bundle-product-container {
+        flex-direction: column;
+        gap: 15px;
+      }
+      
+      .bundle-product-image {
+        width: 60px;
+        height: 60px;
+        align-self: center;
+      }
+    }
+  </style>
+  
+  <!-- Direct HTML rendering for immediate display -->
+  {% if product.id == 8157894312130 %}
+    <div class="bundle-components-wrapper" id="bundle-components-display" data-product-id="{{ product.id }}">
+      <!-- White Chikan Top -->
+      <div class="bundle-product-container" data-component-id="8158048354498" data-component-index="0">
+        <div class="bundle-product-image">
+          <img src="https://cdn.shopify.com/s/files/1/0520/2355/8338/files/CurlyTales-White-Chikan-Set-1.jpg?v=1742154098" alt="White Chikan Top" loading="lazy">
+        </div>
+        <div class="bundle-product-info">
+          <div class="bundle-product-title">White Chikan Top</div>
+          <div class="bundle-product-price">Rs. 2,400.00</div>
+        </div>
+      </div>
+      
+      <!-- White Chikan Bottom -->
+      <div class="bundle-product-container" data-component-id="8158048387266" data-component-index="1">
+        <div class="bundle-product-image">
+          <img src="https://cdn.shopify.com/s/files/1/0520/2355/8338/files/CurlyTales-White-Chikan-Set-2.jpg?v=1742154100" alt="White Chikan Bottom" loading="lazy">
+        </div>
+        <div class="bundle-product-info">
+          <div class="bundle-product-title">White Chikan Bottom</div>
+          <div class="bundle-product-price">Rs. 2,400.00</div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+  
+  <script>
+    (function() {
+      const PRODUCT_ID = {{ product.id }};
+      
+      console.log('Bundle section loaded for product:', PRODUCT_ID);
+      
+      // Correct component products with actual variant IDs
+      const COMPONENT_PRODUCTS = {
+        8157894312130: [ // CurlyTales White Chikan Set
+          {
+            id: 8158048354498,
+            handle: 'curlytales-white-chikan-for-test-top',
+            title: 'White Chikan Top',
+            price: '2400.00',
+            componentType: 'Top',
+            variants: {
+              'S': 45526035628226,
+              'M': 45526035660994,
+              'L': 45526035693762,
+              'XL': 45526035726530,
+              'XXL': 45526035759298
+            }
+          },
+          {
+            id: 8158048387266,
+            handle: 'curlytales-white-chikan-for-test-bottom',
+            title: 'White Chikan Bottom',
+            price: '2400.00',
+            componentType: 'Bottom',
+            variants: {
+              'S': 45526036349122,
+              'M': 45526036381890,
+              'L': 45526036414658,
+              'XL': 45526036447426,
+              'XXL': 45526036480194
+            }
+          }
+        ]
+      };
+      
+      // Store current selected variant globally
+      window.bundleSelectedVariant = 'S'; // Default
+      
+      // Wait for DOM to be ready
+      function initBundleComponents() {
+        // Try to move bundle components to optimal position
+        const bundleWrapper = document.getElementById('bundle-components-display');
+        if (bundleWrapper) {
+          moveBundleComponentsToTop(bundleWrapper);
+        }
+        
+        // Add class to product form to hide original selectors
+        const productForm = document.querySelector('.product__info');
+        if (productForm) {
+          productForm.classList.add('bundle-active');
+        }
+        
+        // Setup instant variant monitoring
+        setupInstantVariantMonitoring();
+        
+        // Setup native cart integration
+        setupNativeCartIntegration();
+        
+        console.log('Bundle components initialized for product', PRODUCT_ID);
+      }
+      
+      function moveBundleComponentsToTop(bundleWrapper) {
+        const possibleTargets = [
+          '[data-section-container]',
+          '.product__info',
+          '.product-form',
+          'main[role="main"]',
+          '#MainContent',
+          '.main-content'
+        ];
+        
+        let targetElement = null;
+        for (let selector of possibleTargets) {
+          targetElement = document.querySelector(selector);
+          if (targetElement) {
+            console.log('Found target element:', selector);
+            break;
+          }
+        }
+        
+        if (targetElement) {
+          bundleWrapper.remove();
+          targetElement.parentNode.insertBefore(bundleWrapper, targetElement);
+          console.log('Bundle components moved above target element');
+        }
+      }
+      
+      function setupInstantVariantMonitoring() {
+        // Monitor variant changes with multiple methods for instant response
+        
+        // Method 1: Monitor variant option clicks
+        function monitorVariantOptions() {
+          const variantOptions = document.querySelectorAll('.product-options__value');
+          variantOptions.forEach(function(option) {
+            option.addEventListener('click', function() {
+              const selectedSize = (this.getAttribute('data-value') || this.textContent.trim()).toUpperCase();
+              window.bundleSelectedVariant = selectedSize;
+              console.log('Instant variant update:', selectedSize);
+            });
+          });
+        }
+        
+        // Method 2: Monitor form inputs
+        function monitorFormInputs() {
+          const formInputs = document.querySelectorAll('input[name="id"], select[name="id"]');
+          formInputs.forEach(function(input) {
+            input.addEventListener('change', function() {
+              updateVariantFromForm();
+            });
+          });
+        }
+        
+        // Method 3: Observe DOM changes for dynamic content
+        function observeDOMChanges() {
+          const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+              if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                const target = mutation.target;
+                if (target.classList.contains('active') && target.classList.contains('product-options__value')) {
+                  const selectedSize = (target.getAttribute('data-value') || target.textContent.trim()).toUpperCase();
+                  window.bundleSelectedVariant = selectedSize;
+                  console.log('DOM observer variant update:', selectedSize);
+                }
+              }
+            });
+          });
+          
+          // Observe the entire product form for changes
+          const productForm = document.querySelector('.product__info, .product-form');
+          if (productForm) {
+            observer.observe(productForm, {
+              attributes: true,
+              childList: true,
+              subtree: true,
+              attributeFilter: ['class']
+            });
+          }
+        }
+        
+        // Method 4: Periodic polling as fallback
+        function pollVariantChanges() {
+          setInterval(function() {
+            const activeOption = document.querySelector('.product-options__value.active');
+            if (activeOption) {
+              const selectedSize = (activeOption.getAttribute('data-value') || activeOption.textContent.trim()).toUpperCase();
+              if (window.bundleSelectedVariant !== selectedSize) {
+                window.bundleSelectedVariant = selectedSize;
+                console.log('Polling variant update:', selectedSize);
+              }
+            }
+          }, 100); // Check every 100ms for instant response
+        }
+        
+        function updateVariantFromForm() {
+          // Map main product variant IDs to sizes
+          const variantMappings = {
+            '45525425881282': 'S',
+            '45525425914050': 'M', 
+            '45525425946818': 'L',
+            '45525425979586': 'XL',
+            '45525426012354': 'XXL'
+          };
+          
+          const formInputs = document.querySelectorAll('input[name="id"], select[name="id"]');
+          formInputs.forEach(function(input) {
+            if ((input.type === 'radio' && input.checked) || input.tagName === 'SELECT') {
+              const value = input.value;
+              if (variantMappings[value]) {
+                window.bundleSelectedVariant = variantMappings[value];
+                console.log('Form variant update:', window.bundleSelectedVariant);
+              }
+            }
+          });
+        }
+        
+        // Apply all monitoring methods
+        setTimeout(function() {
+          monitorVariantOptions();
+          monitorFormInputs();
+          observeDOMChanges();
+          pollVariantChanges();
+          updateVariantFromForm(); // Initial update
+          console.log('Instant variant monitoring active');
+        }, 500);
+      }
+      
+      function setupNativeCartIntegration() {
+        function handleBundleCartSubmit(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          console.log('Bundle cart submit triggered');
+          console.log('Current selected variant:', window.bundleSelectedVariant);
+          
+          // Get component products for this bundle
+          const componentProducts = COMPONENT_PRODUCTS[PRODUCT_ID];
+          if (!componentProducts || componentProducts.length === 0) {
+            console.error('No component products found for product:', PRODUCT_ID);
+            alert('Bundle configuration error. Please contact support.');
+            return;
+          }
+          
+          // Build individual cart items for each component using current variant
+          const cartItems = [];
+          componentProducts.forEach(function(component) {
+            const variantId = component.variants[window.bundleSelectedVariant];
+            if (variantId) {
+              cartItems.push({
+                id: parseInt(variantId),
+                quantity: 1,
+                properties: {
+                  '_bundle_product': 'true',
+                  '_bundle_id': PRODUCT_ID.toString(),
+                  '_bundle_component': component.componentType,
+                  '_bundle_size': window.bundleSelectedVariant,
+                  '_component_title': component.title,
+                  '_bundle_sync_enabled': 'true',
+                  '_auto_remove_siblings': 'true'
+                }
+              });
+            } else {
+              console.warn('No variant found for component', component.title, 'in size', window.bundleSelectedVariant);
+            }
+          });
+          
+          if (cartItems.length === 0) {
+            console.error('No valid component variants found for size:', window.bundleSelectedVariant);
+            alert('Selected size is not available. Please try a different size.');
+            return;
+          }
+          
+          console.log('Adding individual component items to cart:', cartItems);
+          
+          // Disable submit buttons temporarily
+          const submitButtons = document.querySelectorAll('button[name="add"], input[type="submit"][name="add"], .product-form__submit');
+          const originalTexts = [];
+          submitButtons.forEach(function(btn, index) {
+            originalTexts[index] = btn.textContent || btn.value;
+            btn.disabled = true;
+            if (btn.textContent) {
+              btn.textContent = 'Adding Bundle...';
+            } else {
+              btn.value = 'Adding Bundle...';
+            }
+          });
+          
+          // Add items to cart using native Shopify cart API
+          fetch('/cart/add.js', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({ items: cartItems })
+          })
+          .then(function(response) {
+            console.log('Cart response status:', response.status);
+            if (!response.ok) {
+              return response.text().then(function(text) {
+                let errorMessage = 'Failed to add items to cart';
+                try {
+                  const errorData = JSON.parse(text);
+                  if (errorData.message) {
+                    errorMessage = errorData.message;
+                  } else if (errorData.description) {
+                    errorMessage = errorData.description;
+                  }
+                } catch (e) {
+                  if (text) {
+                    errorMessage = text;
+                  }
+                }
+                throw new Error(errorMessage);
+              });
+            }
+            return response.json();
+          })
+          .then(function(data) {
+            console.log('Successfully added bundle components to cart:', data);
+            
+            // Show success message
+            submitButtons.forEach(function(btn) {
+              if (btn.textContent) {
+                btn.textContent = 'Added to Cart!';
+              } else {
+                btn.value = 'Added to Cart!';
+              }
+            });
+            
+            // Trigger cart update events for cart apps
+            triggerCartUpdateEvents();
+            
+            // Re-enable buttons after short delay
+            setTimeout(function() {
+              submitButtons.forEach(function(btn, index) {
+                btn.disabled = false;
+                if (btn.textContent) {
+                  btn.textContent = originalTexts[index];
+                } else {
+                  btn.value = originalTexts[index];
+                }
+              });
+            }, 2000);
+          })
+          .catch(function(error) {
+            console.error('Cart error:', error);
+            
+            // Show specific error message
+            let userMessage = 'Failed to add bundle to cart.';
+            if (error.message.includes('sold out') || error.message.includes('unavailable')) {
+              userMessage = 'Sorry, one or more items in this bundle are currently sold out.';
+            } else if (error.message.includes('invalid') || error.message.includes('not found')) {
+              userMessage = 'Some bundle items are no longer available. Please contact support.';
+            }
+            
+            alert(userMessage + ' Please try again or contact support.');
+            
+            // Re-enable buttons
+            submitButtons.forEach(function(btn, index) {
+              btn.disabled = false;
+              if (btn.textContent) {
+                btn.textContent = originalTexts[index];
+              } else {
+                btn.value = originalTexts[index];
+              }
+            });
+          });
+        }
+        
+        function triggerCartUpdateEvents() {
+          // Trigger various cart update events that cart apps might listen for
+          document.dispatchEvent(new CustomEvent('cart:updated'));
+          document.dispatchEvent(new CustomEvent('cornerCart:update'));
+          document.dispatchEvent(new CustomEvent('cart:build'));
+          window.dispatchEvent(new Event('cartChanged'));
+          document.dispatchEvent(new CustomEvent('cart:change'));
+          
+          // jQuery events (if jQuery is available)
+          if (typeof jQuery !== 'undefined') {
+            jQuery(document).trigger('cart.requestComplete');
+            jQuery(document).trigger('cartUpdated');
+          }
+          
+          // Refresh cart drawer/sidebar if it exists
+          const cartDrawer = document.querySelector('[data-cart-drawer], .cart-drawer, #cart-drawer');
+          if (cartDrawer) {
+            cartDrawer.dispatchEvent(new CustomEvent('refresh'));
+          }
+          
+          // Update cart count
+          const cartCountElements = document.querySelectorAll('[data-cart-count], .cart-count, .cart-item-count');
+          if (cartCountElements.length > 0) {
+            fetch('/cart.js')
+              .then(response => response.json())
+              .then(cart => {
+                cartCountElements.forEach(element => {
+                  element.textContent = cart.item_count;
+                });
+              })
+              .catch(error => console.log('Could not update cart count:', error));
+          }
+          
+          console.log('Cart update events triggered for cart apps');
+        }
+        
+        // Override all add to cart mechanisms
+        function overrideCartMechanisms() {
+          // Override form submissions
+          const forms = document.querySelectorAll('form[action*="/cart/add"], form[action="/cart/add"]');
+          forms.forEach(function(form) {
+            const newForm = form.cloneNode(true);
+            form.parentNode.replaceChild(newForm, form);
+            newForm.addEventListener('submit', handleBundleCartSubmit);
+          });
+          
+          // Override button clicks
+          const buttons = document.querySelectorAll('button[name="add"], input[type="submit"][name="add"], .product-form__submit, [data-add-to-cart]');
+          buttons.forEach(function(button) {
+            const newButton = button.cloneNode(true);
+            button.parentNode.replaceChild(newButton, button);
+            newButton.addEventListener('click', handleBundleCartSubmit);
+          });
+          
+          // Global click handler as fallback
+          document.addEventListener('click', function(e) {
+            const target = e.target;
+            if (target.matches('button[name="add"], input[type="submit"][name="add"], .product-form__submit, [data-add-to-cart]') ||
+                target.closest('button[name="add"], input[type="submit"][name="add"], .product-form__submit, [data-add-to-cart]')) {
+              handleBundleCartSubmit(e);
+            }
+          }, true);
+        }
+        
+        // Apply overrides with delays
+        setTimeout(overrideCartMechanisms, 500);
+        setTimeout(overrideCartMechanisms, 2000);
+        setInterval(overrideCartMechanisms, 5000);
+        
+        console.log('Native cart integration setup complete');
+      }
+      
+      // Initialize when DOM is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initBundleComponents);
+      } else {
+        initBundleComponents();
+      }
+    })();
+  </script>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Bundle Components",
+  "settings": [],
+  "presets": [
+    {
+      "name": "Bundle Components"
+    }
+  ]
+}
+{% endschema %}

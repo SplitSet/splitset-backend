@@ -1,0 +1,80 @@
+{
+  "name": "splitset-backend",
+  "version": "2.0.0",
+  "description": "Production-ready Backend API for SplitSet App - Multi-store Shopify Product Splitting",
+  "main": "serverV2.js",
+  "scripts": {
+    "start": "node serverV2.js",
+    "build": "echo 'No build step required for Node.js backend'",
+    "dev": "nodemon serverV2.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint . --ext .js",
+    "lint:fix": "eslint . --ext .js --fix",
+    "migrate": "knex migrate:latest",
+    "migrate:rollback": "knex migrate:rollback",
+    "migrate:status": "knex migrate:status",
+    "seed": "knex seed:run",
+    "db:setup": "npm run migrate && npm run seed",
+    "health": "curl -f http://localhost:${PORT:-5000}/health || exit 1"
+  },
+  "keywords": [
+    "shopify",
+    "splitset",
+    "splitting",
+    "e-commerce",
+    "multi-tenant",
+    "saas"
+  ],
+  "author": "Your Name",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@shopify/shopify-api": "^8.1.1",
+    "axios": "^1.6.2",
+    "bcrypt": "^5.1.1",
+    "bcryptjs": "^3.0.2",
+    "body-parser": "^1.20.2",
+    "bull": "^4.12.2",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "crypto": "^1.0.1",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "express-validator": "^7.2.1",
+    "helmet": "^7.1.0",
+    "ioredis": "^5.3.2",
+    "jsonwebtoken": "^9.0.2",
+    "knex": "^3.1.0",
+    "lodash": "^4.17.21",
+    "moment": "^2.29.4",
+    "nanoid": "^3.3.7",
+    "pg": "^8.11.3",
+    "pino": "^8.17.2",
+    "pino-pretty": "^10.3.1",
+    "redis": "^4.6.11",
+    "shopify-api-node": "^3.12.6",
+    "sqlite3": "^5.1.6",
+    "uuid": "^9.0.1",
+    "winston": "^3.11.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "eslint": "^8.55.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.29.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^6.1.1",
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.2",
+    "supertest": "^6.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "your-repo-url"
+  }
+}

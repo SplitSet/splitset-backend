@@ -1,0 +1,334 @@
+{% comment %}
+  Bundle Components Display Section - FastBundle Style
+  Displays component products exactly like the test-prod page
+{% endcomment %}
+
+{% if product.metafields.bundle_app.is_bundle %}
+  {% assign component_products_json = product.metafields.bundle_app.component_products.value %}
+  {% if component_products_json == blank %}
+    {% assign component_products_json = product.metafields.bundle_app.component_products %}
+  {% endif %}
+  
+  <style>
+    .bundle-components-container {
+      margin: 20px 0;
+      padding: 15px;
+      background: #f9fafb;
+      border-radius: 8px;
+    }
+    
+    .bundle-product-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid #e5e7eb;
+      gap: 15px;
+    }
+    
+    .bundle-product-item:last-child {
+      border-bottom: none;
+    }
+    
+    .bundle-product-image {
+      width: 80px;
+      height: 80px;
+      border-radius: 6px;
+      overflow: hidden;
+      flex-shrink: 0;
+      border: 1px solid #e5e7eb;
+      background: white;
+    }
+    
+    .bundle-product-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .bundle-product-details {
+      flex-grow: 1;
+      min-width: 0;
+    }
+    
+    .bundle-product-title {
+      font-size: 14px;
+      line-height: 1.4;
+      color: #111827;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    
+    .bundle-product-price {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 8px;
+    }
+    
+    .bundle-variant-selector {
+      margin-left: auto;
+      min-width: 100px;
+    }
+    
+    .bundle-variant-select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 14px;
+      background: white;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    
+    .bundle-variant-select:focus {
+      outline: none;
+      border-color: #9ca3af;
+      box-shadow: 0 0 0 3px rgba(156, 163, 175, 0.1);
+    }
+    
+    .bundle-variant-selector.hidden-selector {
+      visibility: hidden;
+      pointer-events: none;
+    }
+    
+    /* Hide the original variant selector when bundle components are shown */
+    .bundle-components-active .product__info .product-form__input {
+      display: none !important;
+    }
+    
+    /* Style adjustments to match the test page */
+    @media (max-width: 768px) {
+      .bundle-product-item {
+        flex-wrap: wrap;
+      }
+      
+      .bundle-variant-selector {
+        width: 100%;
+        margin-left: 0;
+        margin-top: 10px;
+      }
+    }
+  </style>
+  
+  <div class="bundle-components-container" id="bundle-components-display" data-product-id="{{ product.id }}">
+    <!-- Components will be rendered here by JavaScript -->
+  </div>
+  
+  <script>
+    (function() {
+      // Wait for DOM to be ready
+      function initBundleComponents() {
+        const container = document.getElementById('bundle-components-display');
+        if (!container) return;
+        
+        // Add class to product form to hide original selectors
+        const productForm = document.querySelector('.product__info');
+        if (productForm) {
+          productForm.classList.add('bundle-components-active');
+        }
+        
+        // Parse component products data
+        let componentProducts = {{ component_products_json | json }};
+        if (typeof componentProducts === 'string') {
+          try {
+            componentProducts = JSON.parse(componentProducts);
+          } catch (e) {
+            console.error('Failed to parse component products:', e);
+            return;
+          }
+        }
+        
+        if (!Array.isArray(componentProducts) || componentProducts.length === 0) {
+          console.log('No bundle components to display');
+          return;
+        }
+        
+        // Store for cart functionality
+        window.bundleComponentProducts = componentProducts;
+        
+        // Build HTML for each component
+        let html = '';
+        componentProducts.forEach(function(component, index) {
+          const imageUrl = component.image || 'https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-image_small.png';
+          const price = component.price ? parseFloat(component.price).toFixed(2) : '0.00';
+          const componentTitle = component.title.replace(/\(@[^)]+\)\s*/, ''); // Remove celebrity name prefix
+          
+          html += '<div class="bundle-product-item" data-component-id="' + component.id + '" data-component-index="' + index + '">';
+          html += '  <div class="bundle-product-image">';
+          html += '    <img src="' + imageUrl + '" alt="' + componentTitle + '" loading="lazy">';
+          html += '  </div>';
+          html += '  <div class="bundle-product-details">';
+          html += '    <div class="bundle-product-title">' + componentTitle + '</div>';
+          html += '    <div class="bundle-product-price">Rs. ' + price + '</div>';
+          html += '  </div>';
+          
+          // Only show variant selector for the first product
+          const selectorClass = index === 0 ? 'bundle-variant-selector' : 'bundle-variant-selector hidden-selector';
+          html += '  <div class="' + selectorClass + '">';
+          
+          if (component.variants && component.variants.length > 0) {
+            html += '    <select class="bundle-variant-select" data-component-index="' + index + '" data-component-id="' + component.id + '">';
+            component.variants.forEach(function(variant, vIndex) {
+              const selected = vIndex === 0 ? ' selected' : '';
+              html += '      <option value="' + variant.id + '"' + selected + ' data-variant-index="' + vIndex + '">';
+              html += variant.title || 'Default';
+              html += '</option>';
+            });
+            html += '    </select>';
+          }
+          
+          html += '  </div>';
+          html += '</div>';
+        });
+        
+        container.innerHTML = html;
+        
+        // Setup variant synchronization
+        const firstSelector = container.querySelector('.bundle-variant-select[data-component-index="0"]');
+        if (firstSelector) {
+          // Set up change handler for the first selector
+          firstSelector.addEventListener('change', function(e) {
+            const selectedIndex = e.target.selectedIndex;
+            const selectedVariantId = e.target.value;
+            
+            // Update all hidden selectors to match
+            const allSelectors = container.querySelectorAll('.bundle-variant-select');
+            allSelectors.forEach(function(selector, idx) {
+              if (idx > 0) {
+                // Try to select the same index if available
+                if (selector.options[selectedIndex]) {
+                  selector.selectedIndex = selectedIndex;
+                } else if (selector.options.length > 0) {
+                  // Fallback to first option if index doesn't exist
+                  selector.selectedIndex = 0;
+                }
+              }
+            });
+            
+            console.log('Variant synchronized across all components');
+          });
+          
+          // Trigger initial sync
+          firstSelector.dispatchEvent(new Event('change'));
+        }
+        
+        // Override the add to cart functionality
+        setupCartOverride();
+      }
+      
+      function setupCartOverride() {
+        // Find all add to cart forms
+        const addToCartForms = document.querySelectorAll('form[action*="/cart/add"]');
+        
+        addToCartForms.forEach(function(form) {
+          // Clone to remove existing listeners
+          const newForm = form.cloneNode(true);
+          form.parentNode.replaceChild(newForm, form);
+          
+          // Add new submit handler
+          newForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            if (!window.bundleComponentProducts || window.bundleComponentProducts.length === 0) {
+              console.error('No bundle components found');
+              return;
+            }
+            
+            // Collect selected variants
+            const items = [];
+            const container = document.getElementById('bundle-components-display');
+            
+            window.bundleComponentProducts.forEach(function(component, index) {
+              const selector = container.querySelector('.bundle-variant-select[data-component-index="' + index + '"]');
+              let variantId;
+              
+              if (selector) {
+                variantId = selector.value;
+              } else if (component.variants && component.variants.length > 0) {
+                variantId = component.variants[0].id;
+              }
+              
+              if (variantId) {
+                items.push({
+                  id: parseInt(variantId),
+                  quantity: 1,
+                  properties: {
+                    '_bundle_product': 'true',
+                    '_bundle_id': '{{ product.id }}',
+                    '_bundle_component': component.componentType || component.title
+                  }
+                });
+              }
+            });
+            
+            if (items.length === 0) {
+              console.error('No items to add to cart');
+              return;
+            }
+            
+            // Find and disable submit button
+            const submitBtn = newForm.querySelector('[type="submit"], button[name="add"], .product-form__submit');
+            const originalBtnText = submitBtn ? submitBtn.textContent : '';
+            
+            if (submitBtn) {
+              submitBtn.disabled = true;
+              submitBtn.textContent = 'Adding...';
+            }
+            
+            // Add all items to cart
+            fetch('/cart/add.js', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              },
+              body: JSON.stringify({ items: items })
+            })
+            .then(function(response) {
+              if (!response.ok) {
+                throw new Error('Failed to add to cart');
+              }
+              return response.json();
+            })
+            .then(function(data) {
+              console.log('Bundle added to cart:', data);
+              // Redirect to cart
+              window.location.href = '/cart';
+            })
+            .catch(function(error) {
+              console.error('Error adding to cart:', error);
+              alert('Failed to add bundle to cart. Please try again.');
+              
+              // Re-enable button
+              if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalBtnText;
+              }
+            });
+          });
+        });
+        
+        console.log('Cart override setup complete for bundle products');
+      }
+      
+      // Initialize when DOM is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initBundleComponents);
+      } else {
+        initBundleComponents();
+      }
+    })();
+  </script>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Bundle Components",
+  "settings": [],
+  "presets": [
+    {
+      "name": "Bundle Components"
+    }
+  ]
+}
+{% endschema %}

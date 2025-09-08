@@ -1,0 +1,241 @@
+{% comment %}
+  Bundle Components Display Section - Fixed Version
+  Shows component products inline like FastBundle
+{% endcomment %}
+
+{% if product.metafields.bundle_app.is_bundle %}
+  {% assign component_products_json = product.metafields.bundle_app.component_products.value %}
+  {% if component_products_json == blank %}
+    {% assign component_products_json = product.metafields.bundle_app.component_products %}
+  {% endif %}
+  
+  <style>
+    .bundle-components-section {
+      margin: 20px 0;
+      padding: 0;
+    }
+    
+    .bundle-component-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid #e5e7eb;
+      gap: 12px;
+    }
+    
+    .bundle-component-item:first-child {
+      border-top: 1px solid #e5e7eb;
+      padding-top: 12px;
+    }
+    
+    .bundle-component-item:last-child {
+      border-bottom: none;
+    }
+    
+    .bundle-component-image {
+      width: 60px;
+      height: 60px;
+      border-radius: 6px;
+      overflow: hidden;
+      flex-shrink: 0;
+      border: 1px solid #e5e7eb;
+    }
+    
+    .bundle-component-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .bundle-component-details {
+      flex-grow: 1;
+      min-width: 0;
+    }
+    
+    .bundle-component-title {
+      font-size: 14px;
+      line-height: 1.4;
+      color: #111827;
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+    
+    .bundle-component-price {
+      font-size: 14px;
+      color: #6b7280;
+    }
+    
+    .bundle-component-variant {
+      margin-left: auto;
+      min-width: 120px;
+    }
+    
+    .bundle-variant-select {
+      width: 100%;
+      padding: 6px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 14px;
+      background: white;
+      cursor: pointer;
+    }
+    
+    .bundle-component-variant.hidden {
+      visibility: hidden;
+    }
+  </style>
+  
+  <div class="bundle-components-section" id="bundle-components-display" data-product-id="{{ product.id }}">
+    <!-- Components will be loaded here -->
+  </div>
+  
+  <script src="{{ 'bundle-cart-override.js' | asset_url }}" defer></script>
+  <script>
+    window.bundleProductData = {
+      productId: {{ product.id | json }},
+      componentProducts: {{ component_products_json | json }},
+      productHandle: {{ product.handle | json }}
+    };
+    
+    // Initialize bundle display immediately
+    (function() {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initBundleDisplay);
+      } else {
+        initBundleDisplay();
+      }
+      
+      function initBundleDisplay() {
+        const container = document.getElementById('bundle-components-display');
+        if (!container || !window.bundleProductData) return;
+        
+        let componentProducts = [];
+        try {
+          const data = window.bundleProductData.componentProducts;
+          componentProducts = typeof data === 'string' ? JSON.parse(data) : data;
+        } catch (e) {
+          console.error('Failed to parse component products:', e);
+          return;
+        }
+        
+        if (!componentProducts || componentProducts.length === 0) return;
+        
+        let html = '';
+        componentProducts.forEach(function(component, index) {
+          const imageUrl = component.image || 'https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-image_small.png';
+          const price = component.price ? parseFloat(component.price).toFixed(2) : '0.00';
+          
+          html += '<div class="bundle-component-item" data-component-id="' + component.id + '">';
+          html += '  <div class="bundle-component-image">';
+          html += '    <img src="' + imageUrl + '" alt="' + component.title + '" loading="lazy">';
+          html += '  </div>';
+          html += '  <div class="bundle-component-details">';
+          html += '    <div class="bundle-component-title">' + component.title + '</div>';
+          html += '    <div class="bundle-component-price">Rs. ' + price + '</div>';
+          html += '  </div>';
+          html += '  <div class="bundle-component-variant' + (index > 0 ? ' hidden' : '') + '">';
+          
+          if (component.variants && component.variants.length > 1) {
+            html += '    <select class="bundle-variant-select" data-component-id="' + component.id + '">';
+            component.variants.forEach(function(variant) {
+              html += '      <option value="' + variant.id + '">' + (variant.title || 'Default') + '</option>';
+            });
+            html += '    </select>';
+          }
+          
+          html += '  </div>';
+          html += '</div>';
+        });
+        
+        container.innerHTML = html;
+        
+        // Setup variant sync
+        const selectors = container.querySelectorAll('.bundle-variant-select');
+        if (selectors.length > 0) {
+          selectors[0].addEventListener('change', function(e) {
+            const selectedIndex = e.target.selectedIndex;
+            for (let i = 1; i < selectors.length; i++) {
+              if (selectors[i].options[selectedIndex]) {
+                selectors[i].selectedIndex = selectedIndex;
+              }
+            }
+          });
+        }
+        
+        // Override add to cart
+        const forms = document.querySelectorAll('form[action*="/cart/add"]');
+        forms.forEach(function(form) {
+          const newForm = form.cloneNode(true);
+          form.parentNode.replaceChild(newForm, form);
+          
+          newForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const items = [];
+            componentProducts.forEach(function(component) {
+              const selector = container.querySelector('[data-component-id="' + component.id + '"]');
+              const variantSelect = selector ? selector.querySelector('select') : null;
+              const variantId = variantSelect ? variantSelect.value : (component.variants && component.variants[0] ? component.variants[0].id : null);
+              
+              if (variantId) {
+                items.push({
+                  id: variantId,
+                  quantity: 1,
+                  properties: {
+                    '_bundle_product': 'true',
+                    '_bundle_id': window.bundleProductData.productId.toString()
+                  }
+                });
+              }
+            });
+            
+            if (items.length > 0) {
+              const submitBtn = newForm.querySelector('[type="submit"]');
+              if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Adding...';
+              }
+              
+              fetch('/cart/add.js', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ items: items })
+              }).then(function(response) {
+                if (response.ok) {
+                  window.location.href = '/cart';
+                } else {
+                  alert('Failed to add bundle to cart');
+                  if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Add To Cart';
+                  }
+                }
+              }).catch(function(error) {
+                console.error('Error:', error);
+                alert('Failed to add bundle to cart');
+                if (submitBtn) {
+                  submitBtn.disabled = false;
+                  submitBtn.textContent = 'Add To Cart';
+                }
+              });
+            }
+          });
+        });
+      }
+    })();
+  </script>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Bundle Components",
+  "settings": [],
+  "presets": [
+    {
+      "name": "Bundle Components"
+    }
+  ]
+}
+{% endschema %}

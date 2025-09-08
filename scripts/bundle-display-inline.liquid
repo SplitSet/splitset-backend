@@ -1,0 +1,376 @@
+{% comment %}
+  FastBundle Style Inline Bundle Display
+  This integrates directly into the product form and overrides the default Add to Cart
+{% endcomment %}
+
+{% if product.metafields.bundle_app.is_bundle == 'true' %}
+  {% assign component_products_json = product.metafields.bundle_app.component_products.value %}
+  
+  <style>
+    /* FastBundle style inline display */
+    .fastbundle-components {
+      margin: 20px 0;
+      padding: 0;
+      border: none;
+      background: transparent;
+    }
+    
+    .fastbundle-component {
+      display: flex;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid #e5e7eb;
+      gap: 12px;
+    }
+    
+    .fastbundle-component:first-child {
+      padding-top: 0;
+    }
+    
+    .fastbundle-component:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    
+    .fastbundle-component-image {
+      width: 60px;
+      height: 60px;
+      border-radius: 8px;
+      overflow: hidden;
+      flex-shrink: 0;
+      border: 1px solid #e5e7eb;
+    }
+    
+    .fastbundle-component-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .fastbundle-component-details {
+      flex-grow: 1;
+      min-width: 0;
+    }
+    
+    .fastbundle-component-title {
+      font-size: 14px;
+      line-height: 1.4;
+      color: #111827;
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+    
+    .fastbundle-component-title a {
+      color: inherit;
+      text-decoration: none;
+    }
+    
+    .fastbundle-component-title a:hover {
+      text-decoration: underline;
+    }
+    
+    .fastbundle-component-price {
+      font-size: 14px;
+      color: #6b7280;
+      font-weight: 400;
+    }
+    
+    .fastbundle-component-variant {
+      margin-left: auto;
+      min-width: 120px;
+    }
+    
+    .fastbundle-variant-select {
+      width: 100%;
+      padding: 6px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 14px;
+      background-color: white;
+      cursor: pointer;
+    }
+    
+    .fastbundle-variant-select:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 1px #3b82f6;
+    }
+    
+    .fastbundle-component-variant.hidden {
+      visibility: hidden;
+    }
+    
+    .fastbundle-total {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 2px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    
+    .fastbundle-total-price {
+      color: #059669;
+    }
+    
+    /* Hide duplicate containers if they exist */
+    #bundle-display {
+      display: none;
+    }
+  </style>
+  
+  <div class="fastbundle-components" id="fastbundle-inline">
+    <!-- Components will be injected here by JavaScript -->
+  </div>
+  
+  <script>
+    (function() {
+      // Parse component products from metafield
+      const componentProductsData = {{ component_products_json | json }};
+      let componentProducts = [];
+      let componentVariants = {};
+      let loadedComponents = 0;
+      
+      // Try to parse the JSON data
+      try {
+        componentProducts = typeof componentProductsData === 'string' 
+          ? JSON.parse(componentProductsData) 
+          : componentProductsData;
+      } catch (e) {
+        console.error('Failed to parse component products:', e);
+        return;
+      }
+      
+      if (!componentProducts || componentProducts.length === 0) {
+        console.warn('No component products found');
+        return;
+      }
+      
+      // Function to render components
+      function renderComponents() {
+        const container = document.getElementById('fastbundle-inline');
+        if (!container) return;
+        
+        let html = '';
+        componentProducts.forEach((component, index) => {
+          const imageUrl = component.image || 'https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-image_small.png';
+          const firstVariant = component.variants && component.variants[0];
+          const price = firstVariant ? (parseFloat(firstVariant.price) / 100).toFixed(2) : '0.00';
+          
+          html += `
+            <div class="fastbundle-component" data-component-id="${component.id}">
+              <div class="fastbundle-component-image">
+                <img src="${imageUrl}" alt="${component.title}" loading="lazy">
+              </div>
+              <div class="fastbundle-component-details">
+                <div class="fastbundle-component-title">
+                  <a href="/products/${component.handle}" target="_blank">${component.title}</a>
+                </div>
+                <div class="fastbundle-component-price">
+                  {{ shop.money_format | replace: '{{amount}}', '${price}' }}
+                </div>
+              </div>
+              <div class="fastbundle-component-variant ${index > 0 ? 'hidden' : ''}" data-component-index="${index}">
+                ${component.variants && component.variants.length > 1 ? `
+                  <select class="fastbundle-variant-select" data-component-id="${component.id}" data-index="${index}">
+                    ${component.variants.map(v => `
+                      <option value="${v.id}" data-price="${v.price}">
+                        ${v.title || 'Default'}
+                      </option>
+                    `).join('')}
+                  </select>
+                ` : ''}
+              </div>
+            </div>
+          `;
+          
+          // Store first variant as default
+          if (firstVariant) {
+            componentVariants[component.id] = firstVariant.id;
+          }
+        });
+        
+        container.innerHTML = html;
+        setupVariantSync();
+        overrideAddToCart();
+      }
+      
+      // Setup variant synchronization
+      function setupVariantSync() {
+        const selectors = document.querySelectorAll('.fastbundle-variant-select');
+        const firstSelector = selectors[0];
+        
+        if (firstSelector) {
+          firstSelector.addEventListener('change', function(e) {
+            const selectedIndex = e.target.selectedIndex;
+            
+            // Update stored variant
+            const componentId = e.target.dataset.componentId;
+            componentVariants[componentId] = e.target.value;
+            
+            // Sync other selectors
+            selectors.forEach((selector, index) => {
+              if (index > 0 && selector.options[selectedIndex]) {
+                selector.selectedIndex = selectedIndex;
+                const syncComponentId = selector.dataset.componentId;
+                componentVariants[syncComponentId] = selector.options[selectedIndex].value;
+              }
+            });
+          });
+        }
+      }
+      
+      // Override the default Add to Cart button behavior
+      function overrideAddToCart() {
+        // Find all forms with action="/cart/add"
+        const forms = document.querySelectorAll('form[action*="/cart/add"]');
+        
+        forms.forEach(form => {
+          // Remove existing listeners by cloning
+          const newForm = form.cloneNode(true);
+          form.parentNode.replaceChild(newForm, form);
+          
+          // Add new submit handler
+          newForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Get quantity from form
+            const qtyInput = newForm.querySelector('[name="quantity"]');
+            const quantity = qtyInput ? parseInt(qtyInput.value) : 1;
+            
+            // Prepare items to add
+            const items = [];
+            componentProducts.forEach(component => {
+              const variantId = componentVariants[component.id];
+              if (variantId) {
+                items.push({
+                  id: variantId,
+                  quantity: quantity,
+                  properties: {
+                    '_bundle_product': 'true',
+                    '_bundle_id': '{{ product.id }}',
+                    '_component_type': component.componentType || component.title
+                  }
+                });
+              }
+            });
+            
+            if (items.length === 0) {
+              console.error('No items to add to cart');
+              return;
+            }
+            
+            // Disable submit button
+            const submitBtn = newForm.querySelector('[type="submit"], [name="add"]');
+            const originalText = submitBtn ? submitBtn.textContent : '';
+            if (submitBtn) {
+              submitBtn.disabled = true;
+              submitBtn.textContent = 'Adding...';
+            }
+            
+            try {
+              // Add all items to cart
+              const response = await fetch('/cart/add.js', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ items })
+              });
+              
+              if (response.ok) {
+                const result = await response.json();
+                
+                // Trigger cart update events
+                document.dispatchEvent(new CustomEvent('cart:added', { 
+                  detail: { items: result.items } 
+                }));
+                
+                // Redirect to cart or show success
+                if (window.location.pathname.includes('/products/')) {
+                  // Show success message or redirect
+                  window.location.href = '/cart';
+                } else {
+                  // Reload for collection pages
+                  window.location.reload();
+                }
+              } else {
+                throw new Error('Failed to add items to cart');
+              }
+            } catch (error) {
+              console.error('Error adding bundle to cart:', error);
+              alert('Failed to add bundle to cart. Please try again.');
+              
+              // Re-enable button
+              if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+              }
+            }
+          });
+        });
+        
+        // Also override any button with name="add" that's not in a form
+        const addButtons = document.querySelectorAll('button[name="add"]:not(form button)');
+        addButtons.forEach(button => {
+          button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const form = button.closest('form');
+            if (form) {
+              form.dispatchEvent(new Event('submit'));
+            }
+          });
+        });
+      }
+      
+      // Load component details via AJAX for complete data
+      async function loadComponentDetails() {
+        for (const component of componentProducts) {
+          try {
+            const response = await fetch(`/products/${component.handle}.js`);
+            if (response.ok) {
+              const productData = await response.json();
+              
+              // Update component with full data
+              const index = componentProducts.findIndex(c => c.id === component.id);
+              if (index !== -1) {
+                componentProducts[index] = {
+                  ...component,
+                  ...productData,
+                  componentType: component.componentType
+                };
+                
+                // Update default variant
+                if (productData.variants && productData.variants[0]) {
+                  componentVariants[component.id] = productData.variants[0].id;
+                }
+              }
+            }
+          } catch (error) {
+            console.error(`Failed to load component ${component.handle}:`, error);
+          }
+        }
+        
+        // Re-render with full data
+        renderComponents();
+      }
+      
+      // Initial render with available data
+      renderComponents();
+      
+      // Then load full details
+      loadComponentDetails();
+      
+      // Also listen for DOM ready to ensure form is available
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+          setTimeout(overrideAddToCart, 100);
+        });
+      }
+    })();
+  </script>
+{% endif %}

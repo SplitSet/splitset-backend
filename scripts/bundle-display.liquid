@@ -1,0 +1,331 @@
+{% comment %}
+  Bundle Display Script for Shopify Product Pages
+  This script displays bundle components and handles variant synchronization
+  Place this in your product template where you want the bundle to display
+{% endcomment %}
+
+{% if product.metafields.bundle_app.is_bundle == 'true' %}
+  {% assign bundle_config = product.metafields.bundle_app.bundle_config | json %}
+  {% assign component_products = product.metafields.bundle_app.component_products | json %}
+  
+  <style>
+    .bundle-products-container {
+      margin: 20px 0;
+      padding: 20px;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      background: #f9f9f9;
+    }
+    
+    .bundle-product-item {
+      padding: 15px 0;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .bundle-product-item:last-child {
+      border-bottom: none;
+    }
+    
+    .bundle-product-info {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 10px;
+    }
+    
+    .bundle-product-thumbnail {
+      width: 80px;
+      height: 80px;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid #ddd;
+    }
+    
+    .bundle-product-thumbnail img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .bundle-product-details {
+      flex: 1;
+    }
+    
+    .bundle-product-title {
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+    
+    .bundle-product-title a {
+      color: #000;
+      text-decoration: none;
+    }
+    
+    .bundle-product-price {
+      color: #666;
+      font-size: 16px;
+    }
+    
+    .bundle-variant-selector {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: white;
+      font-size: 14px;
+    }
+    
+    .bundle-total-summary {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 2px solid #e0e0e0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 18px;
+      font-weight: bold;
+    }
+    
+    .bundle-total-price {
+      color: #28a745;
+    }
+    
+    .bundle-add-button {
+      margin-top: 20px;
+      width: 100%;
+      padding: 15px;
+      background: #000;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    
+    .bundle-add-button:hover {
+      background: #333;
+    }
+    
+    .bundle-add-button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+  </style>
+  
+  <div class="bundle-products-container" id="bundle-display">
+    <h3 style="margin-top: 0; margin-bottom: 20px;">This Bundle Includes:</h3>
+    
+    <div id="bundle-components">
+      <!-- Components will be loaded here -->
+    </div>
+    
+    <div class="bundle-total-summary">
+      <span>Bundle Total:</span>
+      <span class="bundle-total-price" id="bundle-total">Loading...</span>
+    </div>
+    
+    <button type="button" class="bundle-add-button" id="bundle-add-to-cart">
+      Add Bundle to Cart
+    </button>
+  </div>
+  
+  <script>
+    (function() {
+      const componentProducts = {{ component_products | json }};
+      const bundleConfig = {{ bundle_config | json }};
+      const productId = {{ product.id }};
+      
+      let selectedVariants = {};
+      let componentData = {};
+      
+      // Initialize bundle display
+      async function initializeBundle() {
+        const container = document.getElementById('bundle-components');
+        if (!container) return;
+        
+        // Fetch component product data
+        for (const component of componentProducts) {
+          try {
+            const response = await fetch(`/products/${component.handle}.js`);
+            const productData = await response.json();
+            componentData[component.id] = productData;
+            
+            // Create component display
+            const componentHTML = createComponentHTML(component, productData);
+            container.innerHTML += componentHTML;
+          } catch (error) {
+            console.error('Error loading component:', component.handle, error);
+          }
+        }
+        
+        // Set up variant selectors
+        setupVariantSelectors();
+        
+        // Update total price
+        updateBundleTotal();
+        
+        // Set up add to cart button
+        setupAddToCart();
+        
+        // Hide original add to cart button
+        const originalButton = document.querySelector('form[action="/cart/add"] button[type="submit"]');
+        if (originalButton) {
+          originalButton.style.display = 'none';
+        }
+      }
+      
+      function createComponentHTML(component, productData) {
+        const firstVariant = productData.variants[0];
+        selectedVariants[component.id] = firstVariant.id;
+        
+        return `
+          <div class="bundle-product-item" data-product-id="${component.id}">
+            <div class="bundle-product-info">
+              ${productData.featured_image ? `
+                <div class="bundle-product-thumbnail">
+                  <img src="${productData.featured_image}" alt="${productData.title}">
+                </div>
+              ` : ''}
+              <div class="bundle-product-details">
+                <div class="bundle-product-title">
+                  <a href="/products/${productData.handle}" target="_blank">${productData.title}</a>
+                </div>
+                <div class="bundle-product-price" data-product-id="${component.id}">
+                  {{ shop.money_format | replace: '{{amount}}', '<span class="price-amount">' }}${(firstVariant.price / 100).toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+            ${productData.variants.length > 1 ? `
+              <div class="bundle-product-variants">
+                <select class="bundle-variant-selector" data-product-id="${component.id}">
+                  ${productData.variants.map(v => `
+                    <option value="${v.id}" data-price="${v.price}">
+                      ${v.title}
+                    </option>
+                  `).join('')}
+                </select>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }
+      
+      function setupVariantSelectors() {
+        const selectors = document.querySelectorAll('.bundle-variant-selector');
+        const firstSelector = selectors[0];
+        
+        if (firstSelector) {
+          // Main selector controls all others
+          firstSelector.addEventListener('change', function(e) {
+            const selectedIndex = e.target.selectedIndex;
+            const productId = e.target.dataset.productId;
+            
+            selectedVariants[productId] = e.target.value;
+            
+            // Sync other selectors
+            selectors.forEach((selector, index) => {
+              if (index > 0 && selector.options[selectedIndex]) {
+                selector.selectedIndex = selectedIndex;
+                const syncProductId = selector.dataset.productId;
+                selectedVariants[syncProductId] = selector.options[selectedIndex].value;
+                
+                // Update price display
+                updateComponentPrice(syncProductId, selector.options[selectedIndex].dataset.price);
+              }
+            });
+            
+            updateBundleTotal();
+          });
+          
+          // Hide other selectors if variant sync is enabled
+          if (bundleConfig.cartTransform && bundleConfig.cartTransform.synchronizeVariants) {
+            selectors.forEach((selector, index) => {
+              if (index > 0) {
+                selector.closest('.bundle-product-variants').style.display = 'none';
+              }
+            });
+          }
+        }
+      }
+      
+      function updateComponentPrice(productId, price) {
+        const priceElement = document.querySelector(`.bundle-product-price[data-product-id="${productId}"] .price-amount`);
+        if (priceElement) {
+          priceElement.textContent = (price / 100).toFixed(2);
+        }
+      }
+      
+      function updateBundleTotal() {
+        let total = 0;
+        
+        for (const [productId, variantId] of Object.entries(selectedVariants)) {
+          const productData = componentData[productId];
+          if (productData) {
+            const variant = productData.variants.find(v => v.id == variantId);
+            if (variant) {
+              total += variant.price;
+            }
+          }
+        }
+        
+        const totalElement = document.getElementById('bundle-total');
+        if (totalElement) {
+          totalElement.innerHTML = `{{ shop.money_format | replace: '{{amount}}', '${(total / 100).toFixed(2)}' }}`;
+        }
+      }
+      
+      function setupAddToCart() {
+        const button = document.getElementById('bundle-add-to-cart');
+        if (!button) return;
+        
+        button.addEventListener('click', async function(e) {
+          e.preventDefault();
+          button.disabled = true;
+          button.textContent = 'Adding to cart...';
+          
+          const items = [];
+          for (const [productId, variantId] of Object.entries(selectedVariants)) {
+            items.push({
+              id: variantId,
+              quantity: 1,
+              properties: {
+                '_bundle_id': `bundle_${productId}`,
+                '_bundle_component': 'true'
+              }
+            });
+          }
+          
+          try {
+            const response = await fetch('/cart/add.js', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ items })
+            });
+            
+            if (response.ok) {
+              window.location.href = '/cart';
+            } else {
+              throw new Error('Failed to add to cart');
+            }
+          } catch (error) {
+            console.error('Error adding bundle to cart:', error);
+            alert('Failed to add bundle to cart. Please try again.');
+            button.disabled = false;
+            button.textContent = 'Add Bundle to Cart';
+          }
+        });
+      }
+      
+      // Initialize on page load
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeBundle);
+      } else {
+        initializeBundle();
+      }
+    })();
+  </script>
+{% endif %}

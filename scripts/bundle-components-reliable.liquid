@@ -1,0 +1,417 @@
+{% comment %}
+  Bundle Components Display Section - Reliable Positioning
+  Displays component products above main content with fallback positioning
+{% endcomment %}
+
+{% if product.metafields.bundle_app.is_bundle %}
+  <style>
+    /* Bundle components styling */
+    .bundle-components-wrapper {
+      margin: 20px 0;
+      position: relative;
+      z-index: 10;
+    }
+    
+    .bundle-product-container {
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+      margin-bottom: 20px;
+      padding: 15px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      background: #fafafa;
+    }
+    
+    .bundle-product-image {
+      width: 100px;
+      height: 100px;
+      border-radius: 8px;
+      overflow: hidden;
+      flex-shrink: 0;
+      border: 1px solid #ddd;
+    }
+    
+    .bundle-product-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .bundle-product-info {
+      flex-grow: 1;
+    }
+    
+    .bundle-product-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+    
+    .bundle-product-price {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 10px;
+    }
+    
+    .bundle-product-description {
+      font-size: 13px;
+      color: #888;
+      line-height: 1.4;
+    }
+    
+    /* Hide original variant selector when bundle is active */
+    .bundle-active .product-form__input {
+      display: none !important;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .bundle-product-container {
+        flex-direction: column;
+        gap: 15px;
+      }
+      
+      .bundle-product-image {
+        width: 80px;
+        height: 80px;
+        align-self: center;
+      }
+    }
+  </style>
+  
+  <!-- Direct HTML rendering for immediate display -->
+  {% if product.id == 8157894312130 %}
+    <div class="bundle-components-wrapper" id="bundle-components-display" data-product-id="{{ product.id }}">
+      <!-- White Chikan Top -->
+      <div class="bundle-product-container" data-component-id="8157903552706" data-component-index="0">
+        <div class="bundle-product-image">
+          <img src="https://cdn.shopify.com/s/files/1/0520/2355/8338/files/CurlyTales-White-Chikan-Set-1.jpg?v=1742154098" alt="White Chikan Top" loading="lazy">
+        </div>
+        <div class="bundle-product-info">
+          <div class="bundle-product-title">White Chikan Top</div>
+          <div class="bundle-product-price">Rs. 2,400.00</div>
+          <div class="bundle-product-description">Georgette with Lucknowi Embroidery. Ready to wear kurta top.</div>
+        </div>
+      </div>
+      
+      <!-- White Chikan Bottom -->
+      <div class="bundle-product-container" data-component-id="8157903716546" data-component-index="1">
+        <div class="bundle-product-image">
+          <img src="https://cdn.shopify.com/s/files/1/0520/2355/8338/files/CurlyTales-White-Chikan-Set-2.jpg?v=1742154100" alt="White Chikan Bottom" loading="lazy">
+        </div>
+        <div class="bundle-product-info">
+          <div class="bundle-product-title">White Chikan Bottom</div>
+          <div class="bundle-product-price">Rs. 2,400.00</div>
+          <div class="bundle-product-description">Chanderi dhoti with comfortable fit. Perfect pair for the top.</div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+  
+  <script>
+    (function() {
+      const PRODUCT_ID = {{ product.id }};
+      
+      console.log('Bundle section loaded for product:', PRODUCT_ID);
+      
+      // Component data for known products
+      const componentData = {
+        8157894312130: [ // CurlyTales White Chikan Set
+          {
+            id: 8157903552706,
+            handle: 'curlytales-white-chikan-for-test-top',
+            title: 'White Chikan Top',
+            price: '2400.00',
+            componentType: 'Top',
+            variants: [
+              {id: 44032498516162, title: 'S'},
+              {id: 44032498548930, title: 'M'},
+              {id: 44032498581698, title: 'L'},
+              {id: 44032498614466, title: 'XL'},
+              {id: 44032498647234, title: 'XXL'}
+            ]
+          },
+          {
+            id: 8157903716546,
+            handle: 'curlytales-white-chikan-for-test-bottom',
+            title: 'White Chikan Bottom',
+            price: '2400.00',
+            componentType: 'Bottom',
+            variants: [
+              {id: 44032498843842, title: 'S'},
+              {id: 44032498876610, title: 'M'},
+              {id: 44032498909378, title: 'L'},
+              {id: 44032498942146, title: 'XL'},
+              {id: 44032498974914, title: 'XXL'}
+            ]
+          }
+        ],
+        7698929287362: [ // Debina Bonnerjee Stripe Technicolour Coord Set
+          {
+            id: 8157903552706,
+            handle: 'debina-bonnerjee-stripe-technicolour-coord-top',
+            title: 'Stripe Technicolour Coord Top',
+            price: '2499.00',
+            componentType: 'Top',
+            variants: [
+              {id: 44032498516162, title: 'XS'},
+              {id: 44032498548930, title: 'S'},
+              {id: 44032498581698, title: 'M'},
+              {id: 44032498614466, title: 'L'},
+              {id: 44032498647234, title: 'XL'},
+              {id: 44032498680002, title: 'XXL'}
+            ]
+          },
+          {
+            id: 8157903716546,
+            handle: 'debina-bonnerjee-stripe-technicolour-coord-bottom',
+            title: 'Stripe Technicolour Coord Bottom',
+            price: '3500.00',
+            componentType: 'Bottom',
+            variants: [
+              {id: 44032498843842, title: 'XS'},
+              {id: 44032498876610, title: 'S'},
+              {id: 44032498909378, title: 'M'},
+              {id: 44032498942146, title: 'L'},
+              {id: 44032498974914, title: 'XL'},
+              {id: 44032499007682, title: 'XXL'}
+            ]
+          }
+        ]
+      };
+      
+      // Wait for DOM to be ready
+      function initBundleComponents() {
+        // Store component data for cart functionality
+        window.bundleComponentProducts = componentData[PRODUCT_ID] || [];
+        
+        // Try to move bundle components above section container
+        const bundleWrapper = document.getElementById('bundle-components-display');
+        if (bundleWrapper && window.bundleComponentProducts.length > 0) {
+          moveBundleComponentsToTop(bundleWrapper);
+        }
+        
+        // Add class to product form to hide original selectors
+        const productForm = document.querySelector('.product__info');
+        if (productForm) {
+          productForm.classList.add('bundle-active');
+        }
+        
+        // Setup variant selection monitoring
+        setupVariantMonitoring();
+        
+        // Setup cart override
+        setupCartOverride();
+        
+        console.log('Bundle components initialized for product', PRODUCT_ID);
+      }
+      
+      function moveBundleComponentsToTop(bundleWrapper) {
+        // Try multiple selectors to find a good insertion point
+        const possibleTargets = [
+          '[data-section-container]',
+          '.product__info',
+          '.product-form',
+          'main[role="main"]',
+          '#MainContent',
+          '.main-content'
+        ];
+        
+        let targetElement = null;
+        for (let selector of possibleTargets) {
+          targetElement = document.querySelector(selector);
+          if (targetElement) {
+            console.log('Found target element:', selector);
+            break;
+          }
+        }
+        
+        if (targetElement) {
+          // Remove from current position
+          bundleWrapper.remove();
+          
+          // Insert before the target element
+          targetElement.parentNode.insertBefore(bundleWrapper, targetElement);
+          console.log('Bundle components moved above target element');
+        } else {
+          console.log('No suitable target element found, keeping in original position');
+        }
+      }
+      
+      function setupVariantMonitoring() {
+        // Monitor the original variant selector changes
+        let currentVariant = 'S'; // Default
+        
+        // Function to get selected variant
+        function getCurrentVariant() {
+          // Try different selectors
+          const activeOption = document.querySelector('.product-options__value.active');
+          if (activeOption) {
+            const variant = activeOption.getAttribute('data-value') || activeOption.textContent.trim();
+            return variant.toUpperCase();
+          }
+          
+          const selectedInput = document.querySelector('input[name="id"]:checked');
+          if (selectedInput) {
+            // Try to extract size from variant title or use mapping
+            return currentVariant;
+          }
+          
+          const selectedSelect = document.querySelector('select[name="id"]');
+          if (selectedSelect && selectedSelect.selectedOptions.length > 0) {
+            return currentVariant;
+          }
+          
+          return currentVariant;
+        }
+        
+        // Set up monitoring
+        function monitorVariantChanges() {
+          const variantSelectors = document.querySelectorAll('.product-options__value, input[name="id"], select[name="id"]');
+          
+          variantSelectors.forEach(function(selector) {
+            selector.addEventListener('click', function() {
+              setTimeout(function() {
+                currentVariant = getCurrentVariant();
+                window.selectedBundleVariant = currentVariant;
+                console.log('Variant selected:', currentVariant);
+              }, 100);
+            });
+            
+            selector.addEventListener('change', function() {
+              setTimeout(function() {
+                currentVariant = getCurrentVariant();
+                window.selectedBundleVariant = currentVariant;
+                console.log('Variant changed:', currentVariant);
+              }, 100);
+            });
+          });
+          
+          // Initial setup
+          currentVariant = getCurrentVariant();
+          window.selectedBundleVariant = currentVariant;
+        }
+        
+        // Start monitoring after a delay
+        setTimeout(monitorVariantChanges, 1000);
+      }
+      
+      function setupCartOverride() {
+        // Find all add to cart forms
+        const addToCartForms = document.querySelectorAll('form[action*="/cart/add"]');
+        
+        addToCartForms.forEach(function(form) {
+          // Clone to remove existing listeners
+          const newForm = form.cloneNode(true);
+          form.parentNode.replaceChild(newForm, form);
+          
+          // Add new submit handler
+          newForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            if (!window.bundleComponentProducts || window.bundleComponentProducts.length === 0) {
+              console.error('No bundle components found');
+              return;
+            }
+            
+            // Get the selected variant
+            const selectedVariant = window.selectedBundleVariant || 'S';
+            console.log('Using variant for cart:', selectedVariant);
+            
+            // Find matching variant IDs for both components
+            const items = [];
+            window.bundleComponentProducts.forEach(function(component) {
+              const matchingVariant = component.variants.find(function(v) {
+                return v.title.toUpperCase() === selectedVariant.toUpperCase();
+              });
+              
+              if (matchingVariant) {
+                items.push({
+                  id: parseInt(matchingVariant.id),
+                  quantity: 1,
+                  properties: {
+                    '_bundle_product': 'true',
+                    '_bundle_id': PRODUCT_ID.toString(),
+                    '_bundle_component': component.componentType,
+                    '_bundle_size': selectedVariant
+                  }
+                });
+              }
+            });
+            
+            if (items.length === 0) {
+              console.error('No matching variants found for:', selectedVariant);
+              return;
+            }
+            
+            console.log('Adding bundle items to cart:', items);
+            
+            // Find and disable submit button
+            const submitBtn = newForm.querySelector('[type="submit"], button[name="add"], .product-form__submit');
+            const originalBtnText = submitBtn ? submitBtn.textContent : '';
+            
+            if (submitBtn) {
+              submitBtn.disabled = true;
+              submitBtn.textContent = 'Adding...';
+            }
+            
+            // Add all items to cart
+            fetch('/cart/add.js', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              },
+              body: JSON.stringify({ items: items })
+            })
+            .then(function(response) {
+              if (!response.ok) {
+                throw new Error('Failed to add to cart');
+              }
+              return response.json();
+            })
+            .then(function(data) {
+              console.log('Bundle added to cart:', data);
+              // Redirect to cart
+              window.location.href = '/cart';
+            })
+            .catch(function(error) {
+              console.error('Error adding to cart:', error);
+              alert('Failed to add bundle to cart. Please try again.');
+              
+              // Re-enable button
+              if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalBtnText;
+              }
+            });
+          });
+        });
+        
+        console.log('Cart override setup complete for bundle products');
+      }
+      
+      // Initialize when DOM is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initBundleComponents);
+      } else {
+        initBundleComponents();
+      }
+    })();
+  </script>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Bundle Components",
+  "settings": [],
+  "presets": [
+    {
+      "name": "Bundle Components"
+    }
+  ]
+}
+{% endschema %}
