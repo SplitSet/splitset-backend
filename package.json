@@ -4,7 +4,7 @@
   "description": "Production-ready Backend API for SplitSet App - Multi-store Shopify Product Splitting",
   "main": "serverV2.js",
   "scripts": {
-    "start": "node debug-server.js",
+    "start": "node serverV2.js",
     "build": "echo 'No build step required for Node.js backend'",
     "dev": "nodemon serverV2.js",
     "test": "jest",
