@@ -12,6 +12,13 @@ class QueueService {
   async initialize() {
     if (this.isInitialized) return;
 
+    // Check if Redis URL is provided, otherwise skip Redis entirely
+    if (!process.env.REDIS_URL && !process.env.REDIS_HOST) {
+      logger.warn('No Redis configuration found - running without queue service');
+      this.isInitialized = true;
+      return;
+    }
+
     const redisConfig = {
       host: process.env.REDIS_HOST || 'localhost',
       port: parseInt(process.env.REDIS_PORT) || 6379,
@@ -20,12 +27,19 @@ class QueueService {
       retryDelayOnFailover: 100,
       enableReadyCheck: false,
       maxRetriesPerRequest: null,
+      connectTimeout: 5000, // 5 second timeout
+      lazyConnect: true, // Don't connect immediately
     };
 
     try {
-      // Test Redis connection
+      // Test Redis connection with timeout
       this.redis = new Redis(redisConfig);
-      await this.redis.ping();
+      await Promise.race([
+        this.redis.ping(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Redis connection timeout')), 5000)
+        )
+      ]);
       
       logger.info('Redis connection established', { 
         host: redisConfig.host, 
