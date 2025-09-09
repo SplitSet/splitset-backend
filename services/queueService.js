@@ -12,15 +12,23 @@ class QueueService {
   async initialize() {
     if (this.isInitialized) return;
 
-    const redisConfig = {
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT) || 6379,
-      password: process.env.REDIS_PASSWORD || undefined,
-      db: parseInt(process.env.REDIS_DB) || 0,
-      retryDelayOnFailover: 100,
-      enableReadyCheck: false,
-      maxRetriesPerRequest: null,
-    };
+    // Use REDIS_URL if available (Render format), otherwise individual config
+    let redisConfig;
+    if (process.env.REDIS_URL) {
+      redisConfig = process.env.REDIS_URL;
+      logger.info('Using REDIS_URL for connection');
+    } else {
+      redisConfig = {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT) || 6379,
+        password: process.env.REDIS_PASSWORD || undefined,
+        db: parseInt(process.env.REDIS_DB) || 0,
+        retryDelayOnFailover: 100,
+        enableReadyCheck: false,
+        maxRetriesPerRequest: null,
+      };
+      logger.info('Using individual Redis config vars');
+    }
 
     try {
       // Test Redis connection
