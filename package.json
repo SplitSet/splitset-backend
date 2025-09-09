@@ -5,7 +5,7 @@
   "main": "serverV2.js",
   "scripts": {
     "prestart": "node scripts/ensure-migrations.js || true",
-    "start": "node server-production.js",
+    "start": "node serverV2.js",
     "start:v2": "node serverV2.js",
     "start:original": "node server.js",
     "build": "node scripts/ensure-migrations.js && echo 'Build complete'",
