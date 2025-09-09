@@ -4,7 +4,7 @@
   "description": "Production-ready Backend API for SplitSet App - Multi-store Shopify Product Splitting",
   "main": "serverV2.js",
   "scripts": {
-    "prestart": "node scripts/ensure-migrations.js || true",
+    "prestart": "node scripts/debug-deployment.js && node scripts/ensure-migrations.js || true",
     "start": "node serverV2.js",
     "start:v2": "node serverV2.js",
     "start:original": "node server.js",
