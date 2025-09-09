@@ -37,6 +37,8 @@ app.use('/api/metafields', require('./routes/metafields')); // Metafield definit
 app.use('/api/app-toggle', require('./routes/appToggle')); // App activation/deactivation
 app.use('/api/component-visibility', require('./routes/componentVisibility')); // Component product visibility
 app.use('/api/analytics', require('./routes/analytics')); // Analytics routes
+app.use('/api/stores', require('./routes/storeSettings')); // Store settings management
+app.use('/api/stores', require('./routes/splitsetControl')); // SplitSet control functionality
 
 // Health check
 app.get('/health', (req, res) => {

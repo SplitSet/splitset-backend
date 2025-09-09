@@ -4,17 +4,18 @@
  * Eliminates hardcoded variant IDs and provides runtime error resistance
  */
 
-const shopifyService = require('./shopifyService');
+const ShopifyServiceV2 = require('./shopifyServiceV2');
 
 class DynamicVariantService {
   /**
    * Update bundle product with dynamic variant mappings
    */
-  async updateBundleVariantMapping(bundleProductId, componentProducts) {
+  async updateBundleVariantMapping(bundleProductId, componentProducts, storeId) {
     try {
       console.log(`Updating dynamic variant mapping for bundle ${bundleProductId}`);
       
       // Get the main bundle product
+      const shopifyService = await ShopifyServiceV2.create(storeId);
       const bundleResult = await shopifyService.getProduct(bundleProductId);
       if (!bundleResult.success) {
         throw new Error(`Failed to fetch bundle product: ${bundleResult.error}`);
@@ -23,7 +24,7 @@ class DynamicVariantService {
       const bundleProduct = bundleResult.data;
       
       // Build comprehensive component data with variant mappings
-      const enhancedComponentData = await this.buildEnhancedComponentData(componentProducts);
+      const enhancedComponentData = await this.buildEnhancedComponentData(componentProducts, storeId);
       
       // Build variant sync mapping
       const variantSyncMapping = await this.buildVariantSyncMapping(bundleProduct, enhancedComponentData);
@@ -81,8 +82,9 @@ class DynamicVariantService {
   /**
    * Build enhanced component data with complete variant information
    */
-  async buildEnhancedComponentData(componentProducts) {
+  async buildEnhancedComponentData(componentProducts, storeId) {
     const enhancedComponents = [];
+    const shopifyService = await ShopifyServiceV2.create(storeId);
     
     for (const component of componentProducts) {
       // Get fresh component data to ensure we have latest variants
@@ -276,11 +278,12 @@ class DynamicVariantService {
   /**
    * Refresh variant mapping for an existing bundle
    */
-  async refreshBundleVariantMapping(bundleProductId) {
+  async refreshBundleVariantMapping(bundleProductId, storeId) {
     try {
       console.log(`Refreshing variant mapping for bundle ${bundleProductId}`);
       
       // Get current component products from metafields
+      const shopifyService = await ShopifyServiceV2.create(storeId);
       const bundleResult = await shopifyService.getProduct(bundleProductId);
       if (!bundleResult.success) {
         throw new Error(`Failed to fetch bundle product: ${bundleResult.error}`);
@@ -315,7 +318,7 @@ class DynamicVariantService {
       }
       
       // Update with fresh data
-      return await this.updateBundleVariantMapping(bundleProductId, freshComponents);
+      return await this.updateBundleVariantMapping(bundleProductId, freshComponents, storeId);
       
     } catch (error) {
       console.error('Error refreshing bundle variant mapping:', error);
@@ -329,8 +332,9 @@ class DynamicVariantService {
   /**
    * Get variant mapping for a specific bundle and size
    */
-  async getBundleVariantMapping(bundleProductId, size) {
+  async getBundleVariantMapping(bundleProductId, size, storeId) {
     try {
+      const shopifyService = await ShopifyServiceV2.create(storeId);
       const bundleResult = await shopifyService.getProduct(bundleProductId);
       if (!bundleResult.success) {
         throw new Error(`Failed to fetch bundle product: ${bundleResult.error}`);

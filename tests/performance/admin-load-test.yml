@@ -1,0 +1,142 @@
+config:
+  target: 'http://localhost:5001'
+  phases:
+    # Warm-up phase
+    - duration: 30
+      arrivalRate: 5
+      name: "Warm-up"
+    
+    # Ramp-up phase  
+    - duration: 60
+      arrivalRate: 10
+      rampTo: 50
+      name: "Ramp-up load"
+    
+    # Sustained load phase
+    - duration: 120
+      arrivalRate: 50
+      name: "Sustained load"
+    
+    # Spike test phase
+    - duration: 30
+      arrivalRate: 100
+      name: "Spike test"
+    
+    # Cool-down phase
+    - duration: 30
+      arrivalRate: 10
+      name: "Cool-down"
+
+  processor: "./performance-helpers.js"
+  
+  # Performance thresholds
+  ensure:
+    # Response time thresholds
+    p95: 500  # 95% of requests should complete within 500ms
+    p99: 1000 # 99% of requests should complete within 1000ms
+    
+    # Error rate threshold
+    maxErrorRate: 1 # Maximum 1% error rate
+    
+    # Throughput threshold
+    minRps: 40 # Minimum 40 requests per second during sustained load
+
+scenarios:
+  - name: "Admin Dashboard Load Test"
+    weight: 60
+    flow:
+      - function: "loginAsAdmin"
+      - think: 1
+      
+      # Test dashboard metrics endpoint
+      - get:
+          url: "/api/admin/dashboard/metrics"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          capture:
+            - json: "$.data.today.products_split_today"
+              as: "productsToday"
+            - json: "$.data.today.splitset_revenue_today"
+              as: "revenueToday"
+          expect:
+            - statusCode: 200
+            - hasProperty: "data.today"
+            - hasProperty: "data.allTime"
+            - hasProperty: "data.today.splitset_revenue_today"
+      
+      - think: 2
+      
+      # Test split products endpoint with pagination
+      - get:
+          url: "/api/admin/products?page=1&limit=50"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+            - hasProperty: "data.products"
+            - hasProperty: "data.pagination"
+      
+      - think: 1
+      
+      # Test orders endpoint
+      - get:
+          url: "/api/admin/orders?page=1&limit=50" 
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+            - hasProperty: "data.ordersByStore"
+
+  - name: "Admin Product Search Load Test"
+    weight: 25
+    flow:
+      - function: "loginAsAdmin"
+      - think: 1
+      
+      # Test product search with various queries
+      - get:
+          url: "/api/admin/products?search=Split&page=1&limit=20"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+      
+      - think: 2
+      
+      # Test store filtering
+      - get:
+          url: "/api/admin/products?store={{ randomStore }}&page=1&limit=20"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Revenue Calculation Stress Test"
+    weight: 15
+    flow:
+      - function: "loginAsAdmin"
+      - think: 0.5
+      
+      # Rapid-fire requests to test SplitSet revenue calculation
+      - loop:
+          - get:
+              url: "/api/admin/dashboard/metrics"
+              headers:
+                Authorization: "Bearer {{ authToken }}"
+              expect:
+                - statusCode: 200
+                - hasProperty: "data.today.splitset_revenue_today"
+                - hasProperty: "data.allTime.splitset_revenue_all_time"
+          count: 10
+          whileTrue: "loop.counter < 10"
+
+# Custom metrics for SplitSet-specific monitoring
+metrics:
+  - name: "splitset_revenue_response_time"
+    unit: "ms"
+    
+  - name: "admin_auth_success_rate"
+    unit: "percent"
+    
+  - name: "pagination_performance"
+    unit: "ms"

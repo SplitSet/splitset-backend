@@ -4,7 +4,7 @@
  * while keeping them accessible for bundle functionality
  */
 
-const shopifyService = require('./shopifyService');
+const ShopifyServiceV2 = require('./shopifyServiceV2');
 
 class ComponentVisibilityService {
   
@@ -12,9 +12,12 @@ class ComponentVisibilityService {
    * Hide component products from storefront
    * Makes them draft/unpublished so customers can't see them
    */
-  async hideComponentProducts(componentProductIds) {
+  async hideComponentProducts(componentProductIds, storeId) {
     try {
       console.log(`Hiding ${componentProductIds.length} component products from storefront`);
+      
+      // Create Shopify service for this store
+      const shopifyService = await ShopifyServiceV2.create(storeId);
       
       const results = [];
       
@@ -25,7 +28,7 @@ class ComponentVisibilityService {
             published: false,
             published_at: null,
             status: 'draft',
-            tags: await this.addHiddenTags(productId)
+            tags: await this.addHiddenTags(productId, storeId)
           });
           
           if (updateResult.success) {
@@ -266,8 +269,9 @@ class ComponentVisibilityService {
   /**
    * Add hidden tags to product
    */
-  async addHiddenTags(productId) {
+  async addHiddenTags(productId, storeId) {
     try {
+      const shopifyService = await ShopifyServiceV2.create(storeId);
       const productResult = await shopifyService.getProduct(productId);
       if (!productResult.success) {
         return 'hidden-component, component, auto-generated';

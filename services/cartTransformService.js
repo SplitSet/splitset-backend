@@ -9,8 +9,9 @@ class CartTransformService {
   /**
    * Check if a product is a bundle and needs cart transformation
    */
-  async isBundle(productId) {
-    const shopifyService = require('./shopifyService');
+  async isBundle(productId, storeId) {
+    const ShopifyServiceV2 = require('./shopifyServiceV2');
+    const shopifyService = await ShopifyServiceV2.create(storeId);
     const productResult = await shopifyService.getProduct(productId);
     
     if (!productResult.success) {
@@ -33,8 +34,9 @@ class CartTransformService {
   /**
    * Get bundle configuration for a product
    */
-  async getBundleConfig(productId) {
-    const shopifyService = require('./shopifyService');
+  async getBundleConfig(productId, storeId) {
+    const ShopifyServiceV2 = require('./shopifyServiceV2');
+    const shopifyService = await ShopifyServiceV2.create(storeId);
     const productResult = await shopifyService.getProduct(productId);
     
     if (!productResult.success) {
@@ -66,13 +68,14 @@ class CartTransformService {
    * Transform cart items based on bundle configuration
    * This is called when a bundle product is added to cart
    */
-  async transformCart(cartItems) {
+  async transformCart(cartItems, storeId) {
     const transformedItems = [];
-    const shopifyService = require('./shopifyService');
+    const ShopifyServiceV2 = require('./shopifyServiceV2');
+    const shopifyService = await ShopifyServiceV2.create(storeId);
     
     for (const item of cartItems) {
       // Check if this is a bundle product
-      const bundleConfig = await this.getBundleConfig(item.productId);
+      const bundleConfig = await this.getBundleConfig(item.productId, storeId);
       
       if (bundleConfig && bundleConfig.cartTransform?.enabled) {
         console.log(`Transforming bundle product: ${item.productId}`);
@@ -91,7 +94,8 @@ class CartTransformService {
             item.variantId,
             item.productId,
             bundleProduct.id,
-            bundleProduct.variantMapping
+            bundleProduct.variantMapping,
+            storeId
           );
           
           transformedItems.push({
@@ -119,8 +123,9 @@ class CartTransformService {
   /**
    * Find matching variant in target product based on main product variant
    */
-  async findMatchingVariant(mainVariantId, mainProductId, targetProductId, variantMapping) {
-    const shopifyService = require('./shopifyService');
+  async findMatchingVariant(mainVariantId, mainProductId, targetProductId, variantMapping, storeId) {
+    const ShopifyServiceV2 = require('./shopifyServiceV2');
+    const shopifyService = await ShopifyServiceV2.create(storeId);
     
     // Get main product variant details
     const mainProductResult = await shopifyService.getProduct(mainProductId);

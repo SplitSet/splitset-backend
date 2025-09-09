@@ -1,0 +1,10 @@
+
+# Local env and secrets
+.env
+.env.*
+cookies.txt
+cookies_new.txt
+env.production.ready
+response.json
+response_new.json
+/data/

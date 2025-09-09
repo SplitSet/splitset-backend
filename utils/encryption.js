@@ -21,7 +21,7 @@ class EncryptionService {
     
     try {
       const iv = crypto.randomBytes(16);
-      const cipher = crypto.createCipher(this.algorithm, this.secretKey);
+      const cipher = crypto.createCipheriv(this.algorithm, this.secretKey, iv);
       cipher.setAAD(Buffer.from('shopify-credentials'));
       
       let encrypted = cipher.update(text, 'utf8', 'hex');
@@ -49,7 +49,7 @@ class EncryptionService {
       const authTag = Buffer.from(parts[1], 'hex');
       const encrypted = parts[2];
       
-      const decipher = crypto.createDecipher(this.algorithm, this.secretKey);
+      const decipher = crypto.createDecipheriv(this.algorithm, this.secretKey, iv);
       decipher.setAuthTag(authTag);
       decipher.setAAD(Buffer.from('shopify-credentials'));
       

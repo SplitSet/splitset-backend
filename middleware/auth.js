@@ -58,16 +58,24 @@ const authenticate = async (req, res, next) => {
       });
     }
 
-    // Attach user info to request
+    // Attach user info to request with session isolation
     req.user = user;
     req.tokenData = decoded;
+    req.sessionId = `${user.id}_${decoded.iat}`;
+    
+    // Get user's accessible stores for session context
+    const userStores = await User.getUserStores(user.id);
+    req.userStores = userStores;
+    req.userStoreIds = userStores.map(store => store.id);
 
     // Update logger context with user info
     if (req.logger) {
       req.logger = req.logger.child({
         userId: user.id,
         userEmail: user.email,
-        userRole: user.role
+        userRole: user.role,
+        sessionId: req.sessionId,
+        accessibleStores: req.userStoreIds.length
       });
     }
 
@@ -257,6 +265,35 @@ const userRateLimit = (maxRequests = 100, windowMs = 15 * 60 * 1000) => {
   };
 };
 
+// Admin-only middleware (app owner access)
+const requireAppOwner = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      error: 'Authentication required',
+      code: 'NO_AUTH'
+    });
+  }
+  
+  // Check if user is app owner (admin role)
+  if (req.user.role !== 'admin') {
+    req.logger?.security('App owner access denied', {
+      userId: req.user.id,
+      userRole: req.user.role,
+      attemptedAccess: 'admin_panel'
+    });
+    
+    return res.status(403).json({
+      success: false,
+      error: 'App owner access required',
+      code: 'ADMIN_ACCESS_DENIED',
+      userRole: req.user.role
+    });
+  }
+  
+  next();
+};
+
 // Refresh token middleware
 const refreshToken = async (req, res, next) => {
   try {
@@ -312,6 +349,7 @@ module.exports = {
   optionalAuth,
   requireRole,
   requireStoreAccess,
+  requireAppOwner,
   userRateLimit,
   refreshToken,
   extractToken

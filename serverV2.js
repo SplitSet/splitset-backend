@@ -10,6 +10,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 const { logger, requestContextMiddleware } = require('./utils/logger');
 const db = require('./db');
 const QueueService = require('./services/queueService');
+const MigrationManager = require('./utils/migrationManager');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -19,6 +20,7 @@ const analyticsRoutes = require('./routes/analyticsV2');
 const productsRoutes = require('./routes/products');
 const ordersRoutes = require('./routes/orders');
 const maintenanceRoutes = require('./routes/maintenance');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -45,30 +47,18 @@ app.use(cors({
       process.env.FRONTEND_URL || 'http://localhost:3000',
       'http://localhost:3000',
       'http://localhost:3001',
+      'https://splitset.vercel.app',
       'https://splitset.in',
-      'https://www.splitset.in',
-      // Allow any Netlify deployment
-      /^https:\/\/.*\.netlify\.app$/,
-      // Allow any Vercel deployment
-      /^https:\/\/.*\.vercel\.app$/
+      'https://www.splitset.in'
     ];
     
     // Allow requests with no origin (mobile apps, etc.)
     if (!origin) return callback(null, true);
     
-    // Check if origin matches any allowed origin (string or regex)
-    const isAllowed = allowedOrigins.some(allowedOrigin => {
-      if (typeof allowedOrigin === 'string') {
-        return allowedOrigin === origin;
-      } else if (allowedOrigin instanceof RegExp) {
-        return allowedOrigin.test(origin);
-      }
-      return false;
-    });
-
-    if (isAllowed) {
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      logger.warn('CORS blocked request', { origin, allowedOrigins });
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -120,6 +110,7 @@ app.use('/api/analytics', analyticsRoutes); // Has its own auth middleware
 app.use('/api/products', authenticate, productsRoutes);
 app.use('/api/orders', authenticate, ordersRoutes);
 app.use('/api/maintenance', maintenanceRoutes); // Has its own auth middleware
+app.use('/api/admin', adminRoutes); // Has its own auth middleware (admin only)
 
 // Legacy routes (for backward compatibility)
 app.use('/api/shopify', require('./routes/shopifyFixed'));
@@ -129,6 +120,10 @@ app.use('/api/bundle-template', require('./routes/bundleTemplate'));
 app.use('/api/metafields', require('./routes/metafields'));
 app.use('/api/app-toggle', require('./routes/appToggle'));
 app.use('/api/component-visibility', require('./routes/componentVisibility'));
+
+// New store management routes
+app.use('/api/stores', require('./routes/storeSettings')); // Store settings management
+app.use('/api/stores', require('./routes/splitsetControl')); // SplitSet control functionality
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -202,22 +197,67 @@ const gracefulShutdown = async (signal) => {
 // Initialize services and start server
 const startServer = async () => {
   try {
-    // Run database migrations
-    logger.info('Running database migrations...');
-    await db.migrate.latest();
-    logger.info('Database migrations completed');
-    
-    // Initialize queue service (optional - Redis required)
-    logger.info('Initializing queue service...');
-    try {
-      await QueueService.initialize();
-      logger.info('Queue service initialized');
-    } catch (error) {
-      logger.warn('Queue service initialization failed - continuing without Redis', { 
-        error: error.message 
-      });
-      logger.info('App will work without background jobs - Redis can be added later');
+    // Run database migrations with deployment-resilient error handling
+    if (process.env.SKIP_AUTO_MIGRATIONS !== 'true') {
+      logger.info('Running database migrations...');
+      try {
+        // Use direct knex migration to avoid file dependency issues
+        const pendingMigrations = await db.migrate.list();
+        const [completed, pending] = pendingMigrations;
+        
+        logger.info(`Found ${completed.length + pending.length} total migrations`);
+        logger.info(`${completed.length} already applied, ${pending.length} pending`);
+        
+        if (pending.length > 0) {
+          logger.info(`Applying ${pending.length} pending migrations...`);
+          await db.migrate.latest();
+          logger.info('✅ Database migrations completed successfully');
+        } else {
+          logger.info('✅ Database is up to date - no migrations needed');
+        }
+      } catch (migrationError) {
+        logger.error('Migration error:', migrationError.message);
+        
+        // Check if it's a file missing error (Render deployment issue)
+        if (migrationError.message.includes('missing:')) {
+          logger.warn('🔧 Migration file deployment issue detected');
+          logger.warn('This is a Render deployment problem, not a database issue');
+          logger.warn('Checking if database is actually ready...');
+          
+          try {
+            // Test database connectivity and essential tables
+            await db.raw('SELECT 1');
+            const tables = await db.raw("SELECT tablename FROM pg_tables WHERE schemaname = 'public'");
+            const tableNames = tables.rows.map(row => row.tablename);
+            
+            const essentialTables = ['stores', 'users', 'products', 'orders'];
+            const missingTables = essentialTables.filter(table => !tableNames.includes(table));
+            
+            if (missingTables.length === 0) {
+              logger.info('✅ Database connectivity OK and essential tables exist');
+              logger.info('Server will start despite migration file deployment issue');
+              logger.warn('Run manual migration later if needed: npm run migrate');
+            } else {
+              logger.error(`❌ Missing essential tables: ${missingTables.join(', ')}`);
+              throw new Error('Database not properly initialized');
+            }
+          } catch (dbError) {
+            logger.error('Database connectivity test failed:', dbError.message);
+            throw migrationError;
+          }
+        } else {
+          throw migrationError;
+        }
+      }
+    } else {
+      logger.info('Skipping automatic migrations (SKIP_AUTO_MIGRATIONS=true)');
+      logger.info('Run migrations manually when ready');
     }
+    
+    // Initialize queue service
+    logger.info('Initializing queue service...');
+    await QueueService.initialize();
+    logger.info('Queue service initialized');
     
     // Start HTTP server
     const server = app.listen(PORT, () => {

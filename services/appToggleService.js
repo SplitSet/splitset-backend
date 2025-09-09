@@ -4,7 +4,7 @@
  * Provides complete on/off functionality
  */
 
-const shopifyService = require('./shopifyService');
+const ShopifyServiceV2 = require('./shopifyServiceV2');
 const axios = require('axios');
 
 class AppToggleService {

@@ -139,14 +139,19 @@ router.post('/register',
     } catch (error) {
       req.logger?.error('Registration failed', {
         error: error.message,
+        stack: error.stack,
         email: req.body.email,
         shopDomain: req.body.shopDomain
       });
 
+      // In development, return detailed error for debugging
+      const errorMessage = process.env.NODE_ENV === 'development' ? error.message : 'Registration failed';
+      
       res.status(500).json({
         success: false,
-        error: 'Registration failed',
-        code: 'REGISTRATION_ERROR'
+        error: errorMessage,
+        code: 'REGISTRATION_ERROR',
+        ...(process.env.NODE_ENV === 'development' && { details: error.stack })
       });
     }
   }
@@ -341,6 +346,32 @@ router.get('/me', authenticate, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to get profile'
+    });
+  }
+});
+
+// Test encryption (temporary endpoint for debugging)
+router.get('/test-encryption', async (req, res) => {
+  try {
+    const encryptionService = require('../utils/encryption');
+    const testData = 'test-encryption-data';
+    const encrypted = encryptionService.encrypt(testData);
+    const decrypted = encryptionService.decrypt(encrypted);
+    
+    res.json({
+      success: true,
+      data: {
+        hasEncryptionKey: !!process.env.ENCRYPTION_KEY,
+        encryptionKeyLength: process.env.ENCRYPTION_KEY ? process.env.ENCRYPTION_KEY.length : 0,
+        testPassed: decrypted === testData,
+        environment: process.env.NODE_ENV
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      hasEncryptionKey: !!process.env.ENCRYPTION_KEY
     });
   }
 });

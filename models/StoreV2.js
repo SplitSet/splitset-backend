@@ -1,5 +1,5 @@
 const db = require('../db');
-const EncryptionService = require('../utils/encryption');
+const encryptionService = require('../utils/encryption');
 
 class StoreV2 {
   static tableName = 'stores';
@@ -25,7 +25,7 @@ class StoreV2 {
     } = data;
     
     // Encrypt Shopify credentials
-    const encryptedCredentials = EncryptionService.encryptShopifyCredentials({
+    const encryptedCredentials = encryptionService.encryptShopifyCredentials({
       accessToken,
       appId,
       appSecret,
@@ -76,7 +76,7 @@ class StoreV2 {
       };
       
       // Re-encrypt
-      const encryptedCredentials = EncryptionService.encryptShopifyCredentials(updatedCredentials);
+      const encryptedCredentials = encryptionService.encryptShopifyCredentials(updatedCredentials);
       
       updateData.access_token_encrypted = encryptedCredentials.accessTokenEncrypted;
       updateData.shopify_app_id_encrypted = encryptedCredentials.appIdEncrypted;
@@ -113,7 +113,7 @@ class StoreV2 {
     if (!store) return null;
     
     try {
-      return EncryptionService.decryptShopifyCredentials(store);
+      return encryptionService.decryptShopifyCredentials(store);
     } catch (error) {
       throw new Error(`Failed to decrypt credentials for store ${store.id}: ${error.message}`);
     }
@@ -245,6 +245,43 @@ class StoreV2 {
   static async delete(id) {
     // This will cascade delete user_stores and related data
     return await db(this.tableName).where({ id }).del();
+  }
+
+  // Get decrypted credentials for API usage
+  static async getDecryptedCredentials(id) {
+    const store = await this.findById(id);
+    if (!store) return null;
+
+    const credentials = {};
+
+    try {
+      // Decrypt access token
+      if (store.access_token_encrypted) {
+        credentials.accessToken = encryptionService.decrypt(store.access_token_encrypted);
+      }
+
+      // Decrypt app credentials
+      if (store.shopify_app_id_encrypted) {
+        credentials.appId = encryptionService.decrypt(store.shopify_app_id_encrypted);
+      }
+
+      if (store.shopify_app_secret_encrypted) {
+        credentials.appSecret = encryptionService.decrypt(store.shopify_app_secret_encrypted);
+      }
+
+      if (store.shopify_webhook_secret_encrypted) {
+        credentials.webhookSecret = encryptionService.decrypt(store.shopify_webhook_secret_encrypted);
+      }
+    } catch (error) {
+      console.warn('Failed to decrypt credentials, using fallback values:', error.message);
+      // Return empty credentials if decryption fails
+      return {};
+    }
+
+    // Add shop domain to credentials
+    credentials.shopDomain = store.shop_domain;
+
+    return credentials;
   }
 
   // Rotate credentials (security feature)

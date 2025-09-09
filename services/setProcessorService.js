@@ -1,4 +1,4 @@
-const shopifyService = require('./shopifyService');
+const ShopifyServiceV2 = require('./shopifyServiceV2');
 const dynamicVariantService = require('./dynamicVariantService');
 const componentVisibilityService = require('./componentVisibilityService');
 const ProductTaggingService = require('../utils/productTagging');
@@ -234,7 +234,7 @@ class SetProcessorService {
   /**
    * Create bundle configuration for the set
    */
-  async createSetBundleConfiguration(originalProduct, componentProducts) {
+  async createSetBundleConfiguration(originalProduct, componentProducts, shopifyService) {
     const componentNames = this.parseComponentNames(originalProduct);
     
     // Calculate prices
@@ -407,9 +407,12 @@ class SetProcessorService {
   /**
    * Process a single set product (for testing)
    */
-  async processSetProduct(productId) {
+  async processSetProduct(productId, storeId) {
     try {
-      console.log(`Starting to process set product with ID: ${productId}`);
+      console.log(`Starting to process set product with ID: ${productId} for store ${storeId}`);
+      
+      // Create Shopify service for this store
+      const shopifyService = await ShopifyServiceV2.create(storeId);
       
       // Get the original product
       const productResult = await shopifyService.getProduct(productId);
@@ -431,7 +434,7 @@ class SetProcessorService {
       }
 
       // Check if already processed
-      const alreadyProcessed = await this.isAlreadyProcessed(originalProduct);
+      const alreadyProcessed = await this.isAlreadyProcessed(originalProduct, null, storeId);
       if (alreadyProcessed) {
         console.log(`Product ${originalProduct.title} has already been processed`);
         return {
@@ -477,7 +480,7 @@ class SetProcessorService {
 
       // Create bundle configuration
       console.log('Creating bundle configuration...');
-      const bundleConfig = await this.createSetBundleConfiguration(originalProduct, createdComponents);
+      const bundleConfig = await this.createSetBundleConfiguration(originalProduct, createdComponents, shopifyService);
       console.log('Bundle configuration created successfully');
       
       // Update with dynamic variant mapping
@@ -570,9 +573,12 @@ class SetProcessorService {
   /**
    * Find all set products in the store
    */
-  async findAllSetProducts() {
+  async findAllSetProducts(storeId) {
     try {
       console.log('Fetching all products from Shopify...');
+      
+      // Create Shopify service for this store
+      const shopifyService = await ShopifyServiceV2.create(storeId);
       
       // Get all products ONCE
       const productsResult = await shopifyService.getAllProducts();
@@ -594,7 +600,7 @@ class SetProcessorService {
       // Pass the product list to avoid re-fetching
       const unprocessedSetProducts = [];
       for (const product of setProducts) {
-        const isProcessed = await this.isAlreadyProcessed(product, allProducts);
+        const isProcessed = await this.isAlreadyProcessed(product, allProducts, storeId);
         if (!isProcessed) {
           unprocessedSetProducts.push(product);
         }
@@ -619,7 +625,7 @@ class SetProcessorService {
   /**
    * Check if product has already been processed
    */
-  async isAlreadyProcessed(product, existingProductsList = null) {
+  async isAlreadyProcessed(product, existingProductsList = null, storeId = null) {
     try {
       // Check if product has bundle metafields indicating it's already processed
       const metafields = product.metafields || [];
@@ -634,20 +640,18 @@ class SetProcessorService {
         return true;
       }
 
-      // Also check if component products already exist
+      // For individual checks (like check button), skip the expensive product search
+      // Only do the expensive check when we have a product list provided (batch operations)
+      if (!existingProductsList) {
+        console.log(`Skipping expensive duplicate check for individual product check`);
+        return false; // Assume not processed if we can't cheaply verify
+      }
+
+      // Also check if component products already exist (only when product list is provided)
       const baseTitle = product.title.replace(/\bset\b/gi, '').trim();
       const componentNames = this.parseComponentNames(product);
       
-      // Use provided product list or fetch once if not provided
       let existingProducts = existingProductsList;
-      if (!existingProducts) {
-        const allProductsResult = await shopifyService.getAllProducts();
-        if (!allProductsResult.success) {
-          console.warn('Could not fetch products to check for duplicates');
-          return false;
-        }
-        existingProducts = allProductsResult.data;
-      }
       
       for (const componentName of componentNames) {
         const expectedTitle = `${baseTitle} ${componentName}`;
@@ -672,9 +676,9 @@ class SetProcessorService {
   /**
    * Process all set products (use with caution)
    */
-  async processAllSetProducts() {
+  async processAllSetProducts(storeId) {
     try {
-      const setProductsResult = await this.findAllSetProducts();
+      const setProductsResult = await this.findAllSetProducts(storeId);
       if (!setProductsResult.success) {
         return setProductsResult;
       }
@@ -684,7 +688,7 @@ class SetProcessorService {
 
       for (const product of setProducts) {
         console.log(`Processing set product: ${product.title}`);
-        const result = await this.processSetProduct(product.id);
+        const result = await this.processSetProduct(product.id, storeId);
         results.push({
           product: product.title,
           result

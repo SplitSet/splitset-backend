@@ -3,27 +3,44 @@
  * Automatically installs bundle display components into the active Shopify theme
  */
 
-const shopifyService = require('./shopifyService');
+const ShopifyServiceV2 = require('./shopifyServiceV2');
 const axios = require('axios');
 const fs = require('fs').promises;
 const path = require('path');
 
 class ThemeInstallerService {
   constructor() {
-    this.baseURL = `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2023-10`;
-    this.accessToken = process.env.SHOPIFY_ACCESS_TOKEN;
-    this.headers = {
-      'X-Shopify-Access-Token': this.accessToken,
-      'Content-Type': 'application/json'
-    };
+    // Store-specific credentials will be initialized per method call
+    this.shopifyService = null;
+    this.baseURL = null;
+    this.headers = null;
+  }
+
+  /**
+   * Initialize service with store-specific credentials
+   */
+  async initialize(storeId) {
+    try {
+      this.shopifyService = await ShopifyServiceV2.create(storeId);
+      this.baseURL = `https://${this.shopifyService.shopDomain}/admin/api/2023-10`;
+      this.headers = {
+        'X-Shopify-Access-Token': this.shopifyService.credentials.accessToken,
+        'Content-Type': 'application/json'
+      };
+      return true;
+    } catch (error) {
+      console.error('Failed to initialize ThemeInstallerService:', error);
+      throw new Error(`Failed to initialize theme service: ${error.message}`);
+    }
   }
 
   /**
    * Install bundle display components into the active theme
    */
-  async installBundleDisplay() {
+  async installBundleDisplay(storeId) {
     try {
-      console.log('🚀 Starting automatic theme installation...');
+      await this.initialize(storeId);
+      console.log(`🚀 Starting automatic theme installation for store ${storeId}...`);
       
       // Step 1: Get the active theme
       const activeTheme = await this.getActiveTheme();
@@ -372,9 +389,10 @@ class ThemeInstallerService {
   /**
    * Uninstall bundle display from theme
    */
-  async uninstallBundleDisplay() {
+  async uninstallBundleDisplay(storeId) {
     try {
-      console.log('🔄 Starting theme uninstallation...');
+      await this.initialize(storeId);
+      console.log(`🔄 Starting theme uninstallation for store ${storeId}...`);
       
       const activeTheme = await this.getActiveTheme();
       if (!activeTheme) {
@@ -402,6 +420,48 @@ class ThemeInstallerService {
       };
     } catch (error) {
       console.error('❌ Uninstallation failed:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Check if bundle display is installed
+   */
+  async checkInstallation(storeId) {
+    try {
+      await this.initialize(storeId);
+      
+      const activeTheme = await this.getActiveTheme();
+      if (!activeTheme) {
+        return {
+          success: false,
+          error: 'No active theme found'
+        };
+      }
+
+      // Check if snippet exists
+      let snippetExists = false;
+      try {
+        const response = await axios.get(
+          `${this.baseURL}/themes/${activeTheme.id}/assets.json?asset[key]=snippets/bundle-display.liquid`,
+          { headers: this.headers }
+        );
+        snippetExists = !!response.data.asset;
+      } catch (error) {
+        snippetExists = false;
+      }
+
+      return {
+        success: true,
+        installed: snippetExists,
+        theme: activeTheme.name,
+        message: snippetExists ? 'Bundle display is installed' : 'Bundle display is not installed'
+      };
+    } catch (error) {
+      console.error('Error checking installation:', error);
       return {
         success: false,
         error: error.message
